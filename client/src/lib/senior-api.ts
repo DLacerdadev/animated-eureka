@@ -5,9 +5,9 @@ class SeniorAPIClient {
 
   constructor() {
     this.config = {
-      baseUrl: process.env.VITE_SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br",
-      apiKey: process.env.VITE_SENIOR_API_KEY || "OpusApiKey_2025!",
-      clientId: process.env.VITE_SENIOR_CLIENT_ID || "opus-dashboard",
+      baseUrl: import.meta.env.VITE_SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br",
+      apiKey: import.meta.env.VITE_SENIOR_API_KEY || "OpusApiKey_2025!",
+      clientId: import.meta.env.VITE_SENIOR_CLIENT_ID || "opus-dashboard",
     };
   }
 
