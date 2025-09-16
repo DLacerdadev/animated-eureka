@@ -137,28 +137,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { baseUrl, apiKey, clientId } = req.body;
       
-      // Make a test request to Senior API
-      const response = await fetch(`${baseUrl}/platform/user/health`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          ...(clientId && { "X-Client-ID": clientId }),
-        },
-      });
+      console.log(`Testando conexão com: ${baseUrl}/api/health`);
+      console.log(`API Key: ${apiKey?.substring(0, 10)}...`);
+      
+      // Testa vários formatos de autenticação para encontrar o correto
+      const authHeaders = [
+        { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        { "X-API-Key": apiKey, "Content-Type": "application/json" },
+        { "Authorization": `ApiKey ${apiKey}`, "Content-Type": "application/json" },
+        { "opus-api-key": apiKey, "Content-Type": "application/json" },
+      ];
 
-      if (response.ok) {
-        res.json({ success: true, message: "Connection successful" });
-      } else {
-        res.status(response.status).json({ 
-          success: false, 
-          error: `HTTP ${response.status}: ${response.statusText}` 
-        });
+      for (let i = 0; i < authHeaders.length; i++) {
+        try {
+          console.log(`Tentativa ${i + 1} com headers:`, Object.keys(authHeaders[i]));
+          
+          const response = await fetch(`${baseUrl}/api/health`, {
+            method: "GET",
+            headers: {
+              ...authHeaders[i],
+              ...(clientId && { "X-Client-ID": clientId }),
+            },
+          });
+
+          const responseText = await response.text();
+          console.log(`Status: ${response.status}, Response:`, responseText);
+
+          if (response.ok) {
+            res.json({ 
+              success: true, 
+              message: "Conexão bem-sucedida", 
+              data: responseText ? JSON.parse(responseText) : null,
+              authMethod: i + 1
+            });
+            return;
+          }
+        } catch (error) {
+          console.log(`Erro na tentativa ${i + 1}:`, error);
+        }
       }
-    } catch (error) {
+
       res.status(500).json({ 
         success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+        error: "Todas as tentativas de autenticação falharam" 
+      });
+    } catch (error) {
+      console.error("Erro geral:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Erro desconhecido" 
       });
     }
   });
