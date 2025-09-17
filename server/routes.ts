@@ -132,60 +132,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Senior API proxy endpoints for testing connectivity
-  app.post("/api/senior/test-connection", async (req, res) => {
+  // Senior API proxy endpoints - protege a chave API no backend
+  const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+  const SENIOR_API_KEY = process.env.SENIOR_API_KEY || "OpusApiKey_2025!";
+
+  // Proxy para testar conexão
+  app.get("/api/senior/health", async (req, res) => {
     try {
-      const { baseUrl, apiKey, clientId } = req.body;
+      const response = await fetch(`${SENIOR_API_URL}/health`, {
+        method: "GET",
+        headers: {
+          "x-api-key": SENIOR_API_KEY,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        res.json({ success: true, data, timestamp: new Date().toISOString() });
+      } else {
+        res.status(response.status).json({ 
+          success: false, 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Erro de conexão" 
+      });
+    }
+  });
+
+  // Proxy para listar tabelas
+  app.get("/api/senior/tables", async (req, res) => {
+    try {
+      const response = await fetch(`${SENIOR_API_URL}/tables`, {
+        method: "GET",
+        headers: {
+          "x-api-key": SENIOR_API_KEY,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.text();
+        res.json({ success: true, data, timestamp: new Date().toISOString() });
+      } else {
+        res.status(response.status).json({ 
+          success: false, 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Erro ao buscar tabelas" 
+      });
+    }
+  });
+
+  // Proxy para executar queries SQL
+  app.post("/api/senior/query", async (req, res) => {
+    try {
+      const { sqlText } = req.body;
       
-      console.log(`Testando conexão com: ${baseUrl}/api/health`);
-      console.log(`API Key: ${apiKey?.substring(0, 10)}...`);
+      // Validação básica de segurança - só permite SELECT
+      if (!sqlText || typeof sqlText !== 'string') {
+        return res.status(400).json({ success: false, error: "SQL é obrigatório" });
+      }
       
-      // Testa vários formatos de autenticação para encontrar o correto
-      const authHeaders = [
-        { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        { "X-API-Key": apiKey, "Content-Type": "application/json" },
-        { "Authorization": `ApiKey ${apiKey}`, "Content-Type": "application/json" },
-        { "opus-api-key": apiKey, "Content-Type": "application/json" },
-      ];
-
-      for (let i = 0; i < authHeaders.length; i++) {
-        try {
-          console.log(`Tentativa ${i + 1} com headers:`, Object.keys(authHeaders[i]));
-          
-          const response = await fetch(`${baseUrl}/api/health`, {
-            method: "GET",
-            headers: {
-              ...authHeaders[i],
-              ...(clientId && { "X-Client-ID": clientId }),
-            },
-          });
-
-          const responseText = await response.text();
-          console.log(`Status: ${response.status}, Response:`, responseText);
-
-          if (response.ok) {
-            res.json({ 
-              success: true, 
-              message: "Conexão bem-sucedida", 
-              data: responseText ? JSON.parse(responseText) : null,
-              authMethod: i + 1
-            });
-            return;
-          }
-        } catch (error) {
-          console.log(`Erro na tentativa ${i + 1}:`, error);
-        }
+      const normalizedSql = sqlText.trim().toUpperCase();
+      if (!normalizedSql.startsWith('SELECT')) {
+        return res.status(400).json({ success: false, error: "Somente queries SELECT são permitidas" });
       }
 
-      res.status(500).json({ 
-        success: false, 
-        error: "Todas as tentativas de autenticação falharam" 
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY,
+        },
+        body: JSON.stringify({ sqlText }),
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Normaliza a resposta para sempre retornar um array
+        const normalizedData = Array.isArray(data) ? data : (data.rows || data.data || []);
+        res.json({ success: true, data: normalizedData, timestamp: new Date().toISOString() });
+      } else {
+        res.status(response.status).json({ 
+          success: false, 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        });
+      }
     } catch (error) {
-      console.error("Erro geral:", error);
       res.status(500).json({ 
         success: false, 
-        error: error instanceof Error ? error.message : "Erro desconhecido" 
+        error: error instanceof Error ? error.message : "Erro ao executar query" 
       });
     }
   });
