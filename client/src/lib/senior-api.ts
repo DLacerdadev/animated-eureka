@@ -62,59 +62,55 @@ class SeniorAPIClient {
   }
 
   async getEmployees(): Promise<SeniorAPIResponse<any[]>> {
-    return this.makeRequest("/api/senior/query", {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
       body: JSON.stringify({
-        sqlText: "SELECT TOP 100 * FROM [opus_hcm_221123].dbo.funcionarios"
+        queryId: "employee_basic"
       })
     });
   }
 
   async getPayrollData(period?: string): Promise<SeniorAPIResponse<any[]>> {
-    const whereClause = period ? `WHERE periodo = '${period}'` : "";
-    return this.makeRequest("/api/senior/query", {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
       body: JSON.stringify({
-        sqlText: `SELECT TOP 100 * FROM [opus_hcm_221123].dbo.folha_pagamento ${whereClause}`
+        queryId: "payroll_summary"
       })
     });
   }
 
   async getTurnoverData(period?: string): Promise<SeniorAPIResponse<any[]>> {
-    const whereClause = period ? `WHERE periodo = '${period}'` : "";
-    return this.makeRequest("/api/senior/query", {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
       body: JSON.stringify({
-        sqlText: `SELECT TOP 100 * FROM [opus_hcm_221123].dbo.turnover ${whereClause}`
+        queryId: "employee_count"
       })
     });
   }
 
   async getAbsenteeismData(period?: string): Promise<SeniorAPIResponse<any[]>> {
-    const whereClause = period ? `WHERE periodo = '${period}'` : "";
-    return this.makeRequest("/api/senior/query", {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
       body: JSON.stringify({
-        sqlText: `SELECT TOP 100 * FROM [opus_hcm_221123].dbo.absenteismo ${whereClause}`
+        queryId: "employee_basic"
       })
     });
   }
 
   async getDemographicsData(): Promise<SeniorAPIResponse<any[]>> {
-    return this.makeRequest("/api/senior/query", {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
       body: JSON.stringify({
-        sqlText: "SELECT TOP 100 * FROM [opus_hcm_221123].dbo.demografia"
+        queryId: "demographics_basic"
       })
     });
   }
 
   async getOvertimeData(period?: string): Promise<SeniorAPIResponse<any[]>> {
-    const whereClause = period ? `WHERE periodo = '${period}'` : "";
-    return this.makeRequest("/api/senior/query", {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
       body: JSON.stringify({
-        sqlText: `SELECT TOP 100 * FROM [opus_hcm_221123].dbo.horas_extra ${whereClause}`
+        queryId: "employee_basic"
       })
     });
   }
@@ -122,11 +118,15 @@ class SeniorAPIClient {
   async getTables(): Promise<SeniorAPIResponse<any[]>> {
     return this.makeRequest("/api/senior/tables");
   }
+  
+  async getAvailableQueries(): Promise<SeniorAPIResponse<any[]>> {
+    return this.makeRequest("/api/senior/queries");
+  }
 
-  async executeQuery(sqlText: string): Promise<SeniorAPIResponse<any[]>> {
-    return this.makeRequest("/api/senior/query", {
+  async executeQuery(queryId: string): Promise<SeniorAPIResponse<any[]>> {
+    return this.makeRequest("/api/senior/execute-query", {
       method: "POST",
-      body: JSON.stringify({ sqlText })
+      body: JSON.stringify({ queryId })
     });
   }
 

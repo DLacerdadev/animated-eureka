@@ -1,10 +1,29 @@
+import dotenv from "dotenv";
+
+// Carrega variáveis de ambiente de múltiplos arquivos
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Configuração de sessão segura
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'desenvolvimento-nao-usar-em-producao',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas
+    sameSite: 'strict'
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -20,13 +39,18 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
+      // Log seguro - SEM dados sensíveis
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      
+      // Log apenas metadata específica, nunca dados
+      if (path.includes('/senior/execute-query') && req.body?.queryId) {
+        logLine += ` :: query=${req.body.queryId}`;
+      } else if (capturedJsonResponse?.success !== undefined) {
+        logLine += ` :: success=${capturedJsonResponse.success}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 100) {
+        logLine = logLine.slice(0, 99) + "…";
       }
 
       log(logLine);
