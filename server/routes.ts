@@ -330,23 +330,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND caudem <> 0 AND caudem <> 6
           ) as demissoes_periodo,
           
-          -- Funcionários ativos no final do período 
+          -- Funcionários ativos no final do período (lógica ótima sem sitafa)
           (SELECT COUNT(*) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1 
            AND datadm <= '${endOfPeriod}'
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
-           -- Para períodos de 2025, aplicar filtro adicional de status
-           ${ano >= 2025 ? 'AND sitafa = 1' : ''}
-          ) as funcionarios_ativos,
-          
-          -- Debug: Contagem sem filtro de status para comparação
-          (SELECT COUNT(*) 
-           FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} AND tipcol = 1 
-           AND datadm <= '${endOfPeriod}'
-           AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
-          ) as funcionarios_sem_sitafa
+          ) as funcionarios_ativos
       `;
 
       const response = await fetch(`${SENIOR_API_URL}/query`, {
@@ -410,17 +400,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           funcionarios_ativos: count,
           contratacoes_periodo: result.contratacoes_periodo || 0,
           demissoes_periodo: result.demissoes_periodo || 0,
-          funcionarios_debug: result.funcionarios_sem_sitafa || 0,
           fonte: "R034FUN (Fórmulas DAX exatas do usuário)",
           empresa: empresa,
           detalhes: {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: ano >= 2025 ? "Com sitafa=1 para períodos atuais" : "Sem sitafa para períodos históricos",
-            status: "TESTANDO LÓGICA CONDICIONAL POR ANO 🔬",
-            targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
-            debug_info: ano >= 2025 ? `Com sitafa: ${count}, Sem sitafa: ${result.funcionarios_sem_sitafa || 0}` : `Lógica histórica: ${count}`
+            funcionarios_formula: "Funcionários ativos no período - lógica otimizada sem filtro sitafa",
+            status: "DADOS REAIS - LÓGICA OTIMIZADA PARA MÁXIMO ALINHAMENTO COM BI ✅",
+            targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A"
           },
           timestamp: new Date().toISOString()
         }
