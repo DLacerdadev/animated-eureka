@@ -343,23 +343,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
              AND datadm <= '${endOfPeriod}'
             )
             -
-            -- Parte 2: Total demitidos acumulados até o período (COM SITAFA=1)
+            -- Parte 2: Total demitidos acumulados até o período (SEM SITAFA)
             (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
              WHERE numemp = ${empresa}
              AND tipcol = 1
-             AND sitafa = 1  -- 🎯 TESTE: Aplicar sitafa=1 na fórmula subtrativa
+             -- 🎯 HÍBRIDO: SEM sitafa para demissões (BI provavelmente usa assim)
              AND datafa <= '${endOfPeriod}'
              AND datafa IS NOT NULL AND YEAR(datafa) > 1900
              AND caudem <> 0 AND caudem <> 6  -- Excluir transferências (cod 6)
             )
             -
-            -- Parte 3: Total transferidos acumulados até o período (COM SITAFA=1)
+            -- Parte 3: Total transferidos acumulados até o período (SEM SITAFA)
             (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
              WHERE numemp = ${empresa}
              AND tipcol = 1
-             AND sitafa = 1  -- 🎯 TESTE: Aplicar sitafa=1 na fórmula subtrativa
+             -- 🎯 HÍBRIDO: SEM sitafa para transferências (BI provavelmente usa assim)
              AND datafa <= '${endOfPeriod}'
              AND datafa IS NOT NULL AND YEAR(datafa) > 1900
              AND caudem = 6  -- Apenas transferências
@@ -375,19 +375,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND datadm <= '${endOfPeriod}'
           ) as total_contratados_ate_periodo,
           
-          -- Total demitidos até período (Parte 2 - COM SITAFA=1)
+          -- Total demitidos até período (Parte 2 - SEM SITAFA - HÍBRIDO)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
+           WHERE numemp = ${empresa} AND tipcol = 1
+           -- 🎯 SEM sitafa para demissões
            AND datafa <= '${endOfPeriod}'
            AND datafa IS NOT NULL AND YEAR(datafa) > 1900
            AND caudem <> 0 AND caudem <> 6
           ) as total_demitidos_ate_periodo,
           
-          -- Total transferidos até período (Parte 3 - COM SITAFA=1)
+          -- Total transferidos até período (Parte 3 - SEM SITAFA - HÍBRIDO)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
+           WHERE numemp = ${empresa} AND tipcol = 1
+           -- 🎯 SEM sitafa para transferências  
            AND datafa <= '${endOfPeriod}'
            AND datafa IS NOT NULL AND YEAR(datafa) > 1900
            AND caudem = 6
@@ -508,8 +510,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: "FÓRMULA DAX + SITAFA=1: Total admitidos (com sitafa=1) - demitidos - transferidos",
-            status: "🎯 TESTE SITAFA=1 NA FÓRMULA SUBTRATIVA",
+            funcionarios_formula: "FÓRMULA DAX HÍBRIDA: Admitidos (com sitafa=1) - Demitidos (sem sitafa) - Transferidos (sem sitafa)",
+            status: "🎯 TESTE HÍBRIDO: sitafa=1 só para contratados",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
             debug_info: `Funcionários: ${count}, Diagnóstico sitafa: ${result.com_sitafa_1 || 0}`
           },
