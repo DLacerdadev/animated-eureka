@@ -171,3 +171,32 @@ export function useTurnoverChart() {
     staleTime: 2 * 60 * 1000 // Considera dados frescos por 2 minutos
   });
 }
+
+// Hook específico para funcionários ativos da Opus Consultoria Ltda
+export function useActiveEmployees() {
+  return useQuery({
+    queryKey: ["/api/senior/active-employees"],
+    queryFn: async (): Promise<{funcionarios_ativos: number; fonte: string; empresa: number}> => {
+      const response = await fetch('/api/senior/active-employees', {
+        headers: {
+          'x-api-key': 'OpusApiKey_2025!'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data: SeniorAPIResponse<{funcionarios_ativos: number; fonte: string; empresa: number}> = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao buscar funcionários ativos');
+      }
+      
+      return data.data!;
+    },
+    refetchInterval: 5 * 60 * 1000, // Atualiza a cada 5 minutos
+    retry: 2,
+    staleTime: 2 * 60 * 1000 // Considera dados frescos por 2 minutos
+  });
+}
