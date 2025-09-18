@@ -262,6 +262,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Proxy para listar tabelas (com autenticação)
   app.get("/api/senior/tables", authenticateSeniorAPI, async (req, res) => {
+    // Em desenvolvimento sem API key válida, retorna dados simulados
+    if (!isApiKeyValid) {
+      return res.json({ 
+        success: true, 
+        data: [
+          { table_name: "employees", description: "Employee data (mock)" },
+          { table_name: "payroll", description: "Payroll data (mock)" },
+          { table_name: "departments", description: "Department data (mock)" }
+        ], 
+        timestamp: new Date().toISOString(),
+        mode: "development-mock"
+      });
+    }
+    
     try {
       const response = await fetch(`${SENIOR_API_URL}/tables`, {
         method: "GET",
@@ -318,6 +332,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Em desenvolvimento sem API key válida, retorna dados simulados
+      if (!isApiKeyValid) {
+        const mockData = getMockDataForQuery(queryId as QueryId);
+        console.log(`🔍 AUDIT (MOCK): Query [${queryId}] simulada para desenvolvimento`);
+        return res.json({ 
+          success: true, 
+          data: mockData, 
+          queryId, 
+          timestamp: new Date().toISOString(),
+          mode: "development-mock"
+        });
+      }
+      
       const sqlText = ALLOWED_QUERIES[queryId as QueryId];
       
       // Auditoria de segurança
@@ -352,6 +379,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  function getMockDataForQuery(queryId: QueryId): any[] {
+    const mockData = {
+      'list_tables': [
+        { TABLE_NAME: 'employees' },
+        { TABLE_NAME: 'payroll' },
+        { TABLE_NAME: 'departments' }
+      ],
+      'employee_count': [{ total: 150 }],
+      'employee_basic': [
+        { numcad: '001', tipcol: 'CLT', sitafa: 1 },
+        { numcad: '002', tipcol: 'CLT', sitafa: 1 },
+        { numcad: '003', tipcol: 'CLT', sitafa: 1 }
+      ],
+      'payroll_summary': [
+        { numcad: '001', comrub: 1, periodo: '2024-01' },
+        { numcad: '002', comrub: 2, periodo: '2024-01' },
+        { numcad: '003', comrub: 3, periodo: '2024-01' }
+      ],
+      'demographics_basic': [
+        { sexo: 'M', count: 85 },
+        { sexo: 'F', count: 65 }
+      ],
+    };
+    return mockData[queryId] || [];
+  }
+
   function getQueryDescription(queryId: QueryId): string {
     const descriptions = {
       'list_tables': 'Lista as tabelas disponíveis no banco',
