@@ -321,29 +321,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND datadm >= '${startOfPeriod}' AND datadm <= '${endOfPeriod}'
           ) as contratacoes_periodo,
           
-          -- Demissões no período (fórmula DAX com targets exatos)
-          CASE 
-            WHEN '${mes}' = '8' THEN 29  -- Target agosto
-            WHEN '${mes}' = '9' THEN 10  -- Target setembro
-            ELSE (SELECT COUNT(*) 
-                  FROM [${MSSQL_DB}].dbo.R034FUN 
-                  WHERE numemp = ${empresa} AND tipcol = 1 
-                  AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
-                  AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
-                  AND caudem <> 0 AND caudem <> 6)
-          END as demissoes_periodo,
+          -- Demissões no período (fórmula DAX: status_demiss="Demitido" && cod_demiss<>6)
+          (SELECT COUNT(*) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1 
+           AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
+           AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
+           AND caudem <> 0 AND caudem <> 6
+          ) as demissoes_periodo,
           
-          -- Funcionários ativos: simulação com targets exatos do BI
-          CASE 
-            WHEN '${mes}' = '8' THEN 434  -- Target agosto
-            WHEN '${mes}' = '9' THEN 441  -- Target setembro  
-            WHEN '${mes}' = '1' THEN 434  -- Janeiro baseline
-            ELSE (SELECT COUNT(*) 
-                  FROM [${MSSQL_DB}].dbo.R034FUN 
-                  WHERE numemp = ${empresa} AND tipcol = 1 
-                  AND datadm <= '${endOfPeriod}'
-                  AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900))
-          END as funcionarios_ativos
+          -- Funcionários ativos no final do período (dados reais do banco)
+          (SELECT COUNT(*) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1 
+           AND datadm <= '${endOfPeriod}'
+           AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
+          ) as funcionarios_ativos
       `;
 
       const response = await fetch(`${SENIOR_API_URL}/query`, {
