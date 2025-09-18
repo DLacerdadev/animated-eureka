@@ -180,6 +180,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check (seguindo padrão Hialinx)
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
+  // Endpoint específico para dados do gráfico de turnover
+  app.get("/api/senior/turnover-chart", async (req, res) => {
+    try {
+      // Em desenvolvimento sem API key válida, retorna dados simulados
+      if (!isApiKeyValid) {
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        const mockTurnoverData = {
+          mes: currentMonth,
+          ano: currentYear,
+          contratacoes: 3,
+          demissoes: 2,
+          funcionarios_ativos: 150,
+          taxa_turnover: ((3 + 2) / 2) / 150 * 100 // Fórmula DAX convertida
+        };
+        
+        return res.json({ 
+          success: true, 
+          data: mockTurnoverData,
+          timestamp: new Date().toISOString(),
+          mode: "development-mock"
+        });
+      }
+
+      // Executa query real via API Senior
+      const query = `
+        SELECT 
+          MONTH(GETDATE()) as mes,
+          YEAR(GETDATE()) as ano,
+          (
+            SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.r070nau 
+            WHERE YEAR(datadm) = YEAR(GETDATE()) 
+              AND MONTH(datadm) = MONTH(GETDATE())
+              AND nome_emp = 'Opus Consultoria Ltda'
+          ) as contratacoes,
+          (
+            SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.r070nau r
+            LEFT JOIN [${MSSQL_DB}].dbo.r035fun f ON r.numcad = f.numcad
+            WHERE YEAR(r.datafa) = YEAR(GETDATE()) 
+              AND MONTH(r.datafa) = MONTH(GETDATE())
+              AND r.nome_emp = 'Opus Consultoria Ltda'
+              AND ISNULL(f.causa_demiss, '') <> 'Transferência p/ Outra Empresa'
+          ) as demissoes,
+          (
+            SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.r070nau 
+            WHERE sitafa = 1 
+              AND nome_emp = 'Opus Consultoria Ltda'
+          ) as funcionarios_ativos
+      `;
+
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY!,
+        },
+        body: JSON.stringify({ sqlText: query }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const rawData = data[0] || { contratacoes: 0, demissoes: 0, funcionarios_ativos: 1 };
+        
+        // Aplicar fórmula DAX: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
+        const taxaTurnover = ((rawData.contratacoes + rawData.demissoes) / 2) / rawData.funcionarios_ativos * 100;
+        
+        const turnoverData = {
+          ...rawData,
+          taxa_turnover: Number(taxaTurnover.toFixed(2))
+        };
+
+        res.json({ 
+          success: true, 
+          data: turnoverData,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(response.status).json({ 
+          success: false, 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        });
+      }
+    } catch (error) {
+      console.error('DB ERROR /api/senior/turnover-chart:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Erro ao buscar dados de turnover" 
+      });
+    }
+  });
+
   // Lista tabelas do banco usando 3-part name (seguindo padrão Hialinx)
   app.get('/api/tables', requireApiKey, async (req, res) => {
     // Em desenvolvimento sem API key válida, retorna dados simulados
@@ -283,6 +377,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     'employee_basic': `SELECT TOP 50 numcad, tipcol, sitafa FROM [${MSSQL_DB}].dbo.r070nau WHERE sitafa = 1`,
     'payroll_summary': `SELECT TOP 30 numcad, comrub, periodo FROM [${MSSQL_DB}].dbo.r022pub WHERE comrub IN (1, 2, 3)`,
     'demographics_basic': `SELECT sexo, COUNT(*) as count FROM [${MSSQL_DB}].dbo.r070nau WHERE sitafa = 1 GROUP BY sexo`,
+    'turnover_opus_current_month': `
+      SELECT 
+        MONTH(GETDATE()) as mes,
+        YEAR(GETDATE()) as ano,
+        (
+          SELECT COUNT(*) 
+          FROM [${MSSQL_DB}].dbo.r070nau 
+          WHERE YEAR(datadm) = YEAR(GETDATE()) 
+            AND MONTH(datadm) = MONTH(GETDATE())
+            AND nome_emp = 'Opus Consultoria Ltda'
+        ) as contratacoes,
+        (
+          SELECT COUNT(*) 
+          FROM [${MSSQL_DB}].dbo.r070nau r
+          LEFT JOIN [${MSSQL_DB}].dbo.r035fun f ON r.numcad = f.numcad
+          WHERE YEAR(r.datafa) = YEAR(GETDATE()) 
+            AND MONTH(r.datafa) = MONTH(GETDATE())
+            AND r.nome_emp = 'Opus Consultoria Ltda'
+            AND ISNULL(f.causa_demiss, '') <> 'Transferência p/ Outra Empresa'
+        ) as demissoes,
+        (
+          SELECT COUNT(*) 
+          FROM [${MSSQL_DB}].dbo.r070nau 
+          WHERE sitafa = 1 
+            AND nome_emp = 'Opus Consultoria Ltda'
+        ) as funcionarios_ativos
+    `,
   } as const;
   
   // Controle de acesso por query (RBAC básico)
@@ -292,6 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     'employee_basic': ['admin', 'hr'], 
     'payroll_summary': ['admin'], // Só admin pode ver folha
     'demographics_basic': ['admin', 'hr', 'viewer'],
+    'turnover_opus_current_month': ['admin', 'hr', 'viewer'], // Turnover é visível para todos
   } as const;
   
   type QueryId = keyof typeof ALLOWED_QUERIES;
@@ -512,6 +634,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { sexo: 'M', count: 85 },
         { sexo: 'F', count: 65 }
       ],
+      'turnover_opus_current_month': [{
+        mes: new Date().getMonth() + 1,
+        ano: new Date().getFullYear(),
+        contratacoes: 3,
+        demissoes: 2,
+        funcionarios_ativos: 150
+      }],
     };
     return mockData[queryId] || [];
   }
@@ -565,6 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       'employee_basic': 'Dados básicos de funcionários ativos',
       'payroll_summary': 'Resumo da folha de pagamento',
       'demographics_basic': 'Dados demográficos básicos',
+      'turnover_opus_current_month': 'Dados de turnover do mês atual para Opus Consultoria Ltda',
     };
     return descriptions[queryId] || 'Descrição não disponível';
   }
