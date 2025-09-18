@@ -1,0 +1,51 @@
+cmdlet Invoke-WebRequest na posição de comando 1 do pipeline
+Forneça valores para os seguintes parâmetros:
+Uri:
+PS C:\Users\Administrador.WIN-E2GB1S58JV6\Desktop\api-senior2> curl -i "$REPLIT_URL/tables" -H "x-api-key: OpusApiKey_2025!"
+Invoke-WebRequest : Não é possível associar o parâmetro 'Headers'. Não é possível converter o valor "x-api-key: OpusApiKey_2025!" do tipo "System.String" no tipo "System.Collections.IDictionary".
+No linha:1 caractere:33
++ curl -i "$REPLIT_URL/tables" -H "x-api-key: OpusApiKey_2025!"
++                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Invoke-WebRequest], ParameterBindingException
+    + FullyQualifiedErrorId : CannotConvertArgumentNoMessage,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+
+PS C:\Users\Administrador.WIN-E2GB1S58JV6\Desktop\api-senior2> curl -i -X POST "$REPLIT_URL/query" \
+Invoke-WebRequest : Não é possível localizar um parâmetro posicional que aceite o argumento '/query'.
+No linha:1 caractere:1
++ curl -i -X POST "$REPLIT_URL/query" \
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Invoke-WebRequest], ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+
+PS C:\Users\Administrador.WIN-E2GB1S58JV6\Desktop\api-senior2>   -H "x-api-key: OpusApiKey_2025!" \
+-H : O termo '-H' não é reconhecido como nome de cmdlet, função, arquivo de script ou programa operável. Verifique a grafia do nome ou, se um caminho tiver sido incluído, veja se o caminho está correto e tente
+novamente.
+No linha:1 caractere:3
++   -H "x-api-key: OpusApiKey_2025!" \
++   ~~
+    + CategoryInfo          : ObjectNotFound: (-H:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+PS C:\Users\Administrador.WIN-E2GB1S58JV6\Desktop\api-senior2>   -H "Content-Type: application/json" \
+-H : O termo '-H' não é reconhecido como nome de cmdlet, função, arquivo de script ou programa operável. Verifique a grafia do nome ou, se um caminho tiver sido incluído, veja se o caminho está correto e tente
+novamente.
+No linha:1 caractere:3
++   -H "Content-Type: application/json" \
++   ~~
+    + CategoryInfo          : ObjectNotFound: (-H:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+PS C:\Users\Administrador.WIN-E2GB1S58JV6\Desktop\api-senior2>   --data '{"sqlText":"select top 1 name from sys.tables order by name"}'
+No linha:1 caractere:5
++   --data '{"sqlText":"select top 1 name from sys.tables order by name ...
++     ~
+Expressão ausente após operador unário '--'.
+No linha:1 caractere:5
++   --data '{"sqlText":"select top 1 name from sys.tables order by name ...
++     ~~~~
+Token 'data' inesperado na expressão ou instrução.
+No linha:1 caractere:9
++   --data '{"sqlText":"select top 1 name from sys.tables order by name ...
++         ~
+Bloco de instrução ausente na seção Data.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException

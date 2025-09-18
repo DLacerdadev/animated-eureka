@@ -308,19 +308,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      // Query para funcionários ativos no final de cada mês
+      // Teste específico para setembro
+      console.log('🔍 Testando query de funcionários ativos para setembro...');
+      try {
+        const testeAtivosQuery = `
+          SELECT 
+            COUNT(*) as total_admitidos,
+            COUNT(CASE WHEN datdem IS NULL THEN 1 END) as sem_demissao,
+            COUNT(CASE WHEN YEAR(datdem) <= 2018 THEN 1 END) as demitidos_ate_2018
+          FROM [${MSSQL_DB}].dbo.r350adm
+          WHERE numemp = 1 
+          AND datadm <= '2024-09-30'
+          AND datadm IS NOT NULL
+        `;
+        
+        const testeAtivosResponse = await fetch(`${SENIOR_API_URL}/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SENIOR_API_KEY!,
+          },
+          body: JSON.stringify({ sqlText: testeAtivosQuery }),
+        });
+        
+        if (testeAtivosResponse.ok) {
+          const testeAtivosData = await testeAtivosResponse.json();
+          console.log('📊 Análise funcionários até setembro:', testeAtivosData[0]);
+        }
+      } catch (error) {
+        console.error('Erro teste ativos:', error);
+      }
+
+      // Query para funcionários ativos no final de cada mês (SIMPLIFICADA)
       const ativosMes = await Promise.all(
         Array.from({ length: 12 }, async (_, i) => {
           const mes = i + 1;
           const ultimoDiaMes = new Date(2024, mes, 0).getDate();
           const dataFimMes = `2024-${mes.toString().padStart(2, '0')}-${ultimoDiaMes}`;
           
+          // Lógica simplificada: contratados até a data - demitidos até a data
           const ativosQuery = `
-            SELECT COUNT(*) as total
-            FROM [${MSSQL_DB}].dbo.r350adm
-            WHERE numemp = 1 
-            AND datadm <= '${dataFimMes}'
-            AND (datdem IS NULL OR datdem > '${dataFimMes}')
+            SELECT 
+              (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
+               WHERE numemp = 1 AND datadm <= '${dataFimMes}' AND datadm IS NOT NULL) -
+              (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
+               WHERE numemp = 1 AND datdem <= '${dataFimMes}' AND datdem IS NOT NULL AND YEAR(datdem) >= 2020) 
+              as total
           `;
           
           try {
