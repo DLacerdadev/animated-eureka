@@ -181,220 +181,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
   // Endpoint específico para dados do gráfico de turnover (dados reais Senior API)
-  app.get("/api/senior/turnover-chart", async (req, res) => {
+  app.get("/api/senior/turnover-chart", requireApiKey, async (req, res) => {
     try {
-      // Se API key não estiver válida, retorna dados simulados
-      if (!isApiKeyValid) {
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
-        const mockData = {
-          mes: currentMonth,
-          ano: currentYear,
-          contratacoes: 5,
-          demissoes: 3,
-          funcionarios_ativos: 148,
-          taxa_turnover: 2.7
-        };
-        
-        return res.json({ 
-          success: true, 
-          data: mockData,
-          timestamp: new Date().toISOString(),
-          mode: "development-mock"
-        });
-      }
+      // Permitir ano como parâmetro, padrão para ano atual
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const empresa = parseInt(req.query.empresa as string) || 1; // Opus Consultoria padrão
 
-      // Implementar query de turnover real usando tabelas r350adm e vbi_hissit descobertas
-      console.log('🔍 Implementando query de turnover com dados reais...');
+      console.log(`🔍 Implementando query de turnover para ${empresa}/${ano}...`);
       
-      // Query para contratações por mês (baseada em r350adm.datadm)
-      const contratacoesMes = await Promise.all(
-        Array.from({ length: 12 }, async (_, i) => {
-          const mes = i + 1;
-          const contratacaoQuery = `
-            SELECT COUNT(*) as total
-            FROM [${MSSQL_DB}].dbo.r350adm
-            WHERE numemp = 1 
-            AND MONTH(datadm) = ${mes} 
-            AND YEAR(datadm) = 2024
-            AND datadm IS NOT NULL
-          `;
-          
-          try {
-            const response = await fetch(`${SENIOR_API_URL}/query`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": SENIOR_API_KEY!,
-              },
-              body: JSON.stringify({ sqlText: contratacaoQuery }),
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              return data[0]?.total || 0;
-            }
-            return 0;
-          } catch (error) {
-            console.error(`Erro contratações mês ${mes}:`, error);
-            return 0;
-          }
-        })
-      );
-
-      // Query de teste para verificar estrutura da coluna datdem
-      console.log('🔍 Investigando estrutura da coluna datdem...');
-      try {
-        const testeDemissaoQuery = `
-          SELECT 
-            COUNT(*) as total_registros,
-            COUNT(datdem) as registros_com_datdem,
-            COUNT(CASE WHEN datdem IS NULL THEN 1 END) as registros_datdem_null,
-            MIN(datdem) as primeira_demissao,
-            MAX(datdem) as ultima_demissao
+      // Query consolidada corrigida para todos os 12 meses e dados reais
+      const turnoverQuery = `
+        WITH Meses AS (
+          SELECT 1 as mes UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+          UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12
+        ),
+        Contratacoes AS (
+          SELECT MONTH(datadm) as mes, COUNT(*) as total
           FROM [${MSSQL_DB}].dbo.r350adm
-          WHERE numemp = 1
-        `;
-        
-        const testeResponse = await fetch(`${SENIOR_API_URL}/query`, {
+          WHERE numemp = ${empresa} AND YEAR(datadm) = ${ano} AND datadm IS NOT NULL
+          GROUP BY MONTH(datadm)
+        ),
+        Demissoes AS (
+          SELECT MONTH(datdem) as mes, COUNT(*) as total
+          FROM [${MSSQL_DB}].dbo.r350adm
+          WHERE numemp = ${empresa} AND YEAR(datdem) = ${ano} AND datdem IS NOT NULL
+          GROUP BY MONTH(datdem)
+        )
+        SELECT 
+          m.mes,
+          ISNULL(c.total, 0) as contratacoes,
+          ISNULL(d.total, 0) as demissoes,
+          (SELECT COUNT(*) 
+           FROM [${MSSQL_DB}].dbo.r350adm 
+           WHERE numemp = ${empresa}
+           AND datadm <= EOMONTH(DATEFROMPARTS(${ano}, m.mes, 1))
+           AND datadm IS NOT NULL
+           AND (datdem IS NULL OR datdem > EOMONTH(DATEFROMPARTS(${ano}, m.mes, 1)))
+          ) as funcionarios_ativos
+        FROM Meses m
+        LEFT JOIN Contratacoes c ON m.mes = c.mes
+        LEFT JOIN Demissoes d ON m.mes = d.mes
+        ORDER BY m.mes
+      `;
+
+      let contratacoesMes = new Array(12).fill(0);
+      let demissoesMes = new Array(12).fill(0);
+      let ativosMes = new Array(12).fill(0);
+      
+      try {
+        const response = await fetch(`${SENIOR_API_URL}/query`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-api-key": SENIOR_API_KEY!,
           },
-          body: JSON.stringify({ sqlText: testeDemissaoQuery }),
+          body: JSON.stringify({ sqlText: turnoverQuery }),
         });
         
-        if (testeResponse.ok) {
-          const testeData = await testeResponse.json();
-          console.log('📊 Análise coluna datdem:', testeData[0]);
+        if (response.ok) {
+          const data = await response.json();
+          data.forEach((row: any, index: number) => {
+            contratacoesMes[index] = row.contratacoes || 0;
+            demissoesMes[index] = row.demissoes || 0;
+            ativosMes[index] = row.funcionarios_ativos || 0;
+          });
         }
       } catch (error) {
-        console.error('Erro teste datdem:', error);
+        console.error('Erro query turnover consolidada:', error);
       }
 
-      // Query para demissões por mês (baseada em r350adm.datdem)
-      const demissoesMes = await Promise.all(
-        Array.from({ length: 12 }, async (_, i) => {
-          const mes = i + 1;
-          const demissaoQuery = `
-            SELECT COUNT(*) as total
-            FROM [${MSSQL_DB}].dbo.r350adm
-            WHERE numemp = 1 
-            AND MONTH(datdem) = ${mes} 
-            AND YEAR(datdem) = 2024
-            AND datdem IS NOT NULL
-          `;
-          
-          try {
-            const response = await fetch(`${SENIOR_API_URL}/query`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": SENIOR_API_KEY!,
-              },
-              body: JSON.stringify({ sqlText: demissaoQuery }),
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              return data[0]?.total || 0;
-            }
-            return 0;
-          } catch (error) {
-            console.error(`Erro demissões mês ${mes}:`, error);
-            return 0;
-          }
-        })
-      );
-
-      // Teste específico para setembro
-      console.log('🔍 Testando query de funcionários ativos para setembro...');
-      try {
-        const testeAtivosQuery = `
-          SELECT 
-            COUNT(*) as total_admitidos,
-            COUNT(CASE WHEN datdem IS NULL THEN 1 END) as sem_demissao,
-            COUNT(CASE WHEN YEAR(datdem) <= 2018 THEN 1 END) as demitidos_ate_2018
-          FROM [${MSSQL_DB}].dbo.r350adm
-          WHERE numemp = 1 
-          AND datadm <= '2024-09-30'
-          AND datadm IS NOT NULL
-        `;
-        
-        const testeAtivosResponse = await fetch(`${SENIOR_API_URL}/query`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": SENIOR_API_KEY!,
-          },
-          body: JSON.stringify({ sqlText: testeAtivosQuery }),
-        });
-        
-        if (testeAtivosResponse.ok) {
-          const testeAtivosData = await testeAtivosResponse.json();
-          console.log('📊 Análise funcionários até setembro:', testeAtivosData[0]);
-        }
-      } catch (error) {
-        console.error('Erro teste ativos:', error);
-      }
-
-      // Query para funcionários ativos no final de cada mês (SIMPLIFICADA)
-      const ativosMes = await Promise.all(
-        Array.from({ length: 12 }, async (_, i) => {
-          const mes = i + 1;
-          const ultimoDiaMes = new Date(2024, mes, 0).getDate();
-          const dataFimMes = `2024-${mes.toString().padStart(2, '0')}-${ultimoDiaMes}`;
-          
-          // Lógica simplificada: contratados até a data - demitidos até a data
-          const ativosQuery = `
-            SELECT 
-              (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
-               WHERE numemp = 1 AND datadm <= '${dataFimMes}' AND datadm IS NOT NULL) -
-              (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
-               WHERE numemp = 1 AND datdem <= '${dataFimMes}' AND datdem IS NOT NULL AND YEAR(datdem) >= 2020) 
-              as total
-          `;
-          
-          try {
-            const response = await fetch(`${SENIOR_API_URL}/query`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": SENIOR_API_KEY!,
-              },
-              body: JSON.stringify({ sqlText: ativosQuery }),
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              return data[0]?.total || 0;
-            }
-            return 0;
-          } catch (error) {
-            console.error(`Erro ativos mês ${mes}:`, error);
-            return 0;
-          }
-        })
-      );
-
-      // Usar dados do mês atual ou setembro como exemplo
+      // Usar dados do mês atual
       const mesAtual = new Date().getMonth(); // 0-11
-      const anoAtual = 2024;
       
-      console.log(`📅 Calculando dados para mês ${mesAtual + 1}/${anoAtual}`);
+      console.log(`📅 Calculando dados para mês ${mesAtual + 1}/${ano}`);
       
       const contratacoes = contratacoesMes[mesAtual] || 0;
       const demissoes = demissoesMes[mesAtual] || 0;
       const ativos = ativosMes[mesAtual] || 0;
       
-      // Calcular taxa de turnover
+      // Calcular taxa de turnover real
       const taxaTurnover = ativos > 0 ? Math.round((demissoes / ativos) * 100 * 100) / 100 : 0;
       
       // Dados no formato esperado pelo frontend
       const turnoverData = {
         mes: mesAtual + 1,
-        ano: anoAtual,
+        ano: ano,
         contratacoes,
         demissoes,
         funcionarios_ativos: ativos,
@@ -402,20 +273,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.log('📊 Dados de turnover calculados:', turnoverData);
-      console.log('📊 Arrays completos:', {
-        contratacoesMes: contratacoesMes,
-        demissoesMes: demissoesMes,
-        ativosMes: ativosMes
-      });
 
       return res.json({
         success: true,
-        data: turnoverData, // Objeto único, não array
+        data: turnoverData,
         summary: {
           totalContratacoes: contratacoesMes.reduce((a, b) => a + b, 0),
           totalDemissoes: demissoesMes.reduce((a, b) => a + b, 0),
           funcionariosAtuais: ativosMes[mesAtual] || 0,
-          turnoverMedio: taxaTurnover
+          turnoverMedio: demissoesMes.length > 0 ? demissoesMes.reduce((acc, item, i) => {
+            const ativos = ativosMes[i] || 0;
+            return acc + (ativos > 0 ? (item / ativos) * 100 : 0);
+          }, 0) / 12 : 0
         },
         timestamp: new Date().toISOString(),
         mode: "real-api-data"
@@ -431,14 +300,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Lista tabelas do banco usando 3-part name (seguindo padrão Hialinx)
   app.get('/api/tables', requireApiKey, async (req, res) => {
-    // Em desenvolvimento sem API key válida, retorna dados simulados
-    if (!isApiKeyValid) {
-      return res.json([
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r070nau' },
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r022pub' },
-        { TABLE_SCHEMA: 'INFORMATION_SCHEMA', TABLE_NAME: 'TABLES' }
-      ]);
-    }
     
     try {
       const query = `
@@ -492,12 +353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `FROM [${MSSQL_DB}].INFORMATION_SCHEMA.`
       );
 
-      // Em desenvolvimento sem API key válida, retorna dados simulados
-      if (!isApiKeyValid) {
-        const mockData = getMockDataForDynamicQuery(sqlText);
-        console.log(`🔍 QUERY SIMULADA: ${sqlText.substring(0, 100)}...`);
-        return res.json(mockData);
-      }
 
       // Auditoria de segurança
       console.log(`🔍 QUERY EXECUTADA: ${sqlText.substring(0, 100)}... em ${new Date().toISOString()}`);
@@ -614,14 +469,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Proxy para testar conexão (sem autenticação para health check)
   app.get("/api/senior/health", async (req, res) => {
-    // Em desenvolvimento sem API key válida, retorna status simulado
-    if (!isApiKeyValid) {
-      return res.json({ 
-        success: true, 
-        data: { status: "OK", mode: "development-mock" }, 
-        timestamp: new Date().toISOString() 
-      });
-    }
     
     try {
       const response = await fetch(`${SENIOR_API_URL}/health`, {
@@ -650,19 +497,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Proxy para listar tabelas (com autenticação)
   app.get("/api/senior/tables", authenticateSeniorAPI, async (req, res) => {
-    // Em desenvolvimento sem API key válida, retorna dados simulados
-    if (!isApiKeyValid) {
-      return res.json({ 
-        success: true, 
-        data: [
-          { table_name: "employees", description: "Employee data (mock)" },
-          { table_name: "payroll", description: "Payroll data (mock)" },
-          { table_name: "departments", description: "Department data (mock)" }
-        ], 
-        timestamp: new Date().toISOString(),
-        mode: "development-mock"
-      });
-    }
     
     try {
       const response = await fetch(`${SENIOR_API_URL}/tables`, {
@@ -720,18 +554,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Em desenvolvimento sem API key válida, retorna dados simulados
-      if (!isApiKeyValid) {
-        const mockData = getMockDataForQuery(queryId as QueryId);
-        console.log(`🔍 AUDIT (MOCK): Query [${queryId}] simulada para desenvolvimento`);
-        return res.json({ 
-          success: true, 
-          data: mockData, 
-          queryId, 
-          timestamp: new Date().toISOString(),
-          mode: "development-mock"
-        });
-      }
       
       const sqlText = ALLOWED_QUERIES[queryId as QueryId];
       
@@ -767,80 +589,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  function getMockDataForQuery(queryId: QueryId): any[] {
-    const mockData = {
-      'list_tables': [
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r070nau' },
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r022pub' },
-        { TABLE_SCHEMA: 'INFORMATION_SCHEMA', TABLE_NAME: 'TABLES' }
-      ],
-      'employee_count': [{ total: 150 }],
-      'employee_basic': [
-        { numcad: '001', tipcol: 'CLT', sitafa: 1 },
-        { numcad: '002', tipcol: 'CLT', sitafa: 1 },
-        { numcad: '003', tipcol: 'CLT', sitafa: 1 }
-      ],
-      'payroll_summary': [
-        { numcad: '001', comrub: 1, periodo: '2024-01' },
-        { numcad: '002', comrub: 2, periodo: '2024-01' },
-        { numcad: '003', comrub: 3, periodo: '2024-01' }
-      ],
-      'demographics_basic': [
-        { sexo: 'M', count: 85 },
-        { sexo: 'F', count: 65 }
-      ],
-      'turnover_opus_current_month': [{
-        mes: new Date().getMonth() + 1,
-        ano: new Date().getFullYear(),
-        contratacoes: 3,
-        demissoes: 2,
-        funcionarios_ativos: 150
-      }],
-    };
-    return mockData[queryId] || [];
-  }
-
-  // Mock data para consultas dinâmicas (seguindo padrão Hialinx)
-  function getMockDataForDynamicQuery(sqlText: string): any[] {
-    const upperSql = sqlText.toUpperCase();
-    
-    // Se é uma query sobre INFORMATION_SCHEMA.TABLES
-    if (upperSql.includes('INFORMATION_SCHEMA.TABLES')) {
-      return [
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r070nau', TABLE_TYPE: 'BASE TABLE' },
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r022pub', TABLE_TYPE: 'BASE TABLE' },
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r035fun', TABLE_TYPE: 'BASE TABLE' },
-        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r001tco', TABLE_TYPE: 'BASE TABLE' }
-      ];
-    }
-    
-    // Se é uma query sobre funcionários (r070nau)
-    if (upperSql.includes('R070NAU')) {
-      if (upperSql.includes('COUNT')) {
-        return [{ total: 150 }];
-      } else {
-        return [
-          { numcad: '001', tipcol: 'CLT', sitafa: 1, nomfun: 'João Silva' },
-          { numcad: '002', tipcol: 'CLT', sitafa: 1, nomfun: 'Maria Santos' },
-          { numcad: '003', tipcol: 'CLT', sitafa: 1, nomfun: 'Pedro Oliveira' }
-        ];
-      }
-    }
-    
-    // Se é uma query sobre folha de pagamento (r022pub)
-    if (upperSql.includes('R022PUB')) {
-      return [
-        { numcad: '001', comrub: 1, periodo: '2024-01', valcal: 5000.00 },
-        { numcad: '002', comrub: 2, periodo: '2024-01', valcal: 4500.00 },
-        { numcad: '003', comrub: 3, periodo: '2024-01', valcal: 6000.00 }
-      ];
-    }
-    
-    // Mock genérico
-    return [
-      { resultado: 'Mock data', query: sqlText.substring(0, 50) + '...', timestamp: new Date().toISOString() }
-    ];
-  }
 
   function getQueryDescription(queryId: QueryId): string {
     const descriptions = {
