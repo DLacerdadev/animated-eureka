@@ -137,18 +137,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // PRODUÇÃO: Exige configuração segura da API key
   const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  let isApiKeyValid = false;
   
   if (!SENIOR_API_KEY) {
-    console.error("🚫 SECURITY: SENIOR_API_KEY é obrigatória!");
-    console.error("🚫 Configure: export SENIOR_API_KEY='sua_chave_real'");
-    console.error("🚫 NUNCA hardcode chaves API no código!");
-    process.exit(1);
-  }
-  
-  // Valida que não é uma chave de exemplo/teste
-  if (SENIOR_API_KEY.includes('example') || SENIOR_API_KEY.includes('test') || SENIOR_API_KEY.length < 10) {
-    console.error("🚫 SECURITY: API key inválida ou de exemplo detectada!");
-    process.exit(1);
+    if (isDevelopment) {
+      console.warn("⚠️  DEVELOPMENT: SENIOR_API_KEY não configurada - API Senior será simulada");
+      console.warn("⚠️  Para testes reais, configure: SENIOR_API_KEY='sua_chave_real'");
+      console.warn("⚠️  NUNCA hardcode chaves API no código!");
+    } else {
+      console.error("🚫 PRODUCTION: SENIOR_API_KEY é obrigatória!");
+      console.error("🚫 Configure: SENIOR_API_KEY='sua_chave_real'");
+      console.error("🚫 NUNCA hardcode chaves API no código!");
+      process.exit(1);
+    }
+  } else if (SENIOR_API_KEY.includes('example') || SENIOR_API_KEY.includes('test') || SENIOR_API_KEY.length < 10) {
+    if (isDevelopment) {
+      console.warn("⚠️  DEVELOPMENT: API key inválida detectada - API Senior será simulada");
+      console.warn("⚠️  Para testes reais, configure uma chave válida");
+    } else {
+      console.error("🚫 PRODUCTION: API key inválida ou de exemplo detectada!");
+      process.exit(1);
+    }
+  } else {
+    isApiKeyValid = true;
+    console.log("✅ API key válida configurada");
   }
   
   // Queries pré-definidas com colunas específicas (sem SELECT *)
@@ -212,11 +226,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Proxy para testar conexão (sem autenticação para health check)
   app.get("/api/senior/health", async (req, res) => {
+    // Em desenvolvimento sem API key válida, retorna status simulado
+    if (!isApiKeyValid) {
+      return res.json({ 
+        success: true, 
+        data: { status: "OK", mode: "development-mock" }, 
+        timestamp: new Date().toISOString() 
+      });
+    }
+    
     try {
       const response = await fetch(`${SENIOR_API_URL}/health`, {
         method: "GET",
         headers: {
-          "x-api-key": SENIOR_API_KEY,
+          "x-api-key": SENIOR_API_KEY!,
         },
       });
 
