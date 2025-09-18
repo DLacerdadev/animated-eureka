@@ -266,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await fetch(`${SENIOR_API_URL}/tables`, {
         method: "GET",
         headers: {
-          "x-api-key": SENIOR_API_KEY,
+          "x-api-key": SENIOR_API_KEY!,
         },
       });
 
@@ -329,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": SENIOR_API_KEY,
+          "x-api-key": SENIOR_API_KEY!,
         },
         body: JSON.stringify({ sqlText }),
       });
