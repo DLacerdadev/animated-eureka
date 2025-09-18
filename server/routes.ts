@@ -314,23 +314,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const activeEmployeesQuery = `
         SELECT 
-          -- Contratações no período (fórmula DAX exata)
-          (SELECT COUNT(*) 
+          -- Contratações no período (fórmula DAX exata + DISTINCT como BI)
+          (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1 
            AND datadm >= '${startOfPeriod}' AND datadm <= '${endOfPeriod}'
           ) as contratacoes_periodo,
           
-          -- Demissões no período (fórmula DAX: status_demiss="Demitido" && cod_demiss<>6)
-          (SELECT COUNT(*) 
+          -- Demissões no período (fórmula DAX + DISTINCT + cod_demiss<>6 = transferências)
+          (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1 
            AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
            AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
-           AND caudem <> 0 AND caudem <> 6
+           AND caudem <> 0 AND caudem <> 6  -- ✨ cod_demiss=6 são transferências
           ) as demissoes_periodo,
           
-          -- Funcionários ativos únicos (lógica híbrida otimizada)
+          -- Funcionários ativos únicos (lógica híbrida + DISTINCT como BI)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} 
@@ -340,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
            ${ano <= 2024 ? 'AND sitafa = 1' : ''}  -- sitafa=1 para históricos, sem para recentes
           ) as funcionarios_ativos,
           
-          -- Diagnóstico: Com sitafa = 1 no final do período
+          -- Diagnóstico: Com sitafa = 1 no final do período + DISTINCT
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} 
@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND sitafa = 1
           ) as com_sitafa_1,
           
-          -- Diagnóstico: Apenas datafa IS NULL (sem YEAR <= 1900)
+          -- Diagnóstico: Apenas datafa IS NULL + DISTINCT
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} 
@@ -359,7 +359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND datafa IS NULL
           ) as so_datafa_null,
           
-          -- Diagnóstico: Com sitafa = 1 + só datafa NULL
+          -- Diagnóstico: Com sitafa = 1 + só datafa NULL + DISTINCT
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} 
@@ -442,8 +442,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: ano <= 2024 ? "sitafa=1 + tipcol=1 (históricos)" : "tipcol IN(1,3,5) sem sitafa (recentes)",
-            status: "LÓGICA HÍBRIDA BASEADA NA DESCOBERTA: 99.1% ALINHADO ✅",
+            funcionarios_formula: ano <= 2024 ? "sitafa=1 + tipcol=1 + DISTINCT (históricos)" : "tipcol IN(1,3,5) + DISTINCT (recentes)",
+            status: "LÓGICA HÍBRIDA + PADRÕES BI: cod_demiss<>6, COUNT(DISTINCT) ✨",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
             debug_info: `Funcionários: ${count}, Diagnóstico sitafa: ${result.com_sitafa_1 || 0}`
           },
