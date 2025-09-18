@@ -204,120 +204,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Primeiro: encontrar o código da Opus Consultoria Ltda na tabela de empresas
-      console.log('🔍 Procurando código da Opus Consultoria Ltda...');
+      // Primeiro: investigar estrutura completa da tabela r070nau
+      console.log('🔍 Investigando todas as colunas da tabela r070nau...');
       
-      const companyQuery = `
-        SELECT numemp, nomemp 
-        FROM [${MSSQL_DB}].dbo.r030emp 
-        WHERE nomemp LIKE 'Opus Consultoria Ltda%'
+      const allColumnsQuery = `
+        SELECT COLUMN_NAME, DATA_TYPE 
+        FROM [${MSSQL_DB}].INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='r070nau' 
+        ORDER BY COLUMN_NAME
       `;
       
-      console.log('🔍 Executando busca por empresa:', companyQuery);
-      const companyResponse = await fetch(`${SENIOR_API_URL}/query`, {
+      console.log('🔍 Executando query de todas as colunas...');
+      const columnsResponse = await fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": SENIOR_API_KEY!,
         },
-        body: JSON.stringify({ sqlText: companyQuery }),
+        body: JSON.stringify({ sqlText: allColumnsQuery }),
       });
 
-      if (!companyResponse.ok) {
-        const errorText = await companyResponse.text();
-        console.error('❌ Erro ao buscar empresa:', companyResponse.status, companyResponse.statusText, errorText);
-        return res.status(companyResponse.status).json({ 
+      if (!columnsResponse.ok) {
+        const errorText = await columnsResponse.text();
+        console.error('❌ Erro ao consultar colunas:', columnsResponse.status, columnsResponse.statusText, errorText);
+        return res.status(columnsResponse.status).json({ 
           success: false, 
-          error: `Company lookup error: ${companyResponse.status} - ${errorText}` 
+          error: `Columns query error: ${columnsResponse.status} - ${errorText}` 
         });
       }
       
-      const companyData = await companyResponse.json();
-      console.log('📊 Dados da empresa encontrados:', companyData);
+      const allColumns = await columnsResponse.json();
+      console.log('📊 Todas as colunas da r070nau:', allColumns);
       
-      if (!companyData || companyData.length === 0) {
-        console.error('❌ Opus Consultoria Ltda não encontrada na tabela r030emp');
-        return res.status(404).json({ 
-          success: false, 
-          error: "Opus Consultoria Ltda não encontrada na base de dados" 
-        });
-      }
-      
-      const opusCode = companyData[0].numemp;
-      console.log('✅ Código da Opus encontrado:', opusCode);
-
-      // Agora executa a query de turnover usando o código correto (craemp)
-      const turnoverQuery = `
-        SELECT 
-          MONTH(GETDATE()) as mes,
-          YEAR(GETDATE()) as ano,
-          (
-            SELECT COUNT(*) 
-            FROM [${MSSQL_DB}].dbo.r070nau 
-            WHERE YEAR(datadm) = YEAR(GETDATE()) 
-              AND MONTH(datadm) = MONTH(GETDATE())
-              AND craemp = ${opusCode}
-          ) as contratacoes,
-          (
-            SELECT COUNT(*) 
-            FROM [${MSSQL_DB}].dbo.r070nau 
-            WHERE YEAR(datafa) = YEAR(GETDATE()) 
-              AND MONTH(datafa) = MONTH(GETDATE())
-              AND craemp = ${opusCode}
-          ) as demissoes,
-          (
-            SELECT COUNT(*) 
-            FROM [${MSSQL_DB}].dbo.r070nau 
-            WHERE sitafa = 1 
-              AND craemp = ${opusCode}
-          ) as funcionarios_ativos
-      `;
-
-      console.log('🔍 Executando query de turnover com código correto...');
-      const turnoverResponse = await fetch(`${SENIOR_API_URL}/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SENIOR_API_KEY!,
+      // Retorna informações sobre as colunas para análise
+      return res.json({
+        success: true,
+        investigation: {
+          table: "r070nau",
+          total_columns: allColumns.length,
+          all_columns: allColumns,
+          message: "Estrutura completa da tabela r070nau - identificar colunas para status de funcionário"
         },
-        body: JSON.stringify({ sqlText: turnoverQuery }),
-      });
-
-      if (!turnoverResponse.ok) {
-        const errorText = await turnoverResponse.text();
-        console.error('❌ Erro na query de turnover:', turnoverResponse.status, turnoverResponse.statusText, errorText);
-        return res.status(turnoverResponse.status).json({ 
-          success: false, 
-          error: `Turnover query error: ${turnoverResponse.status} - ${errorText}` 
-        });
-      }
-
-      const turnoverData = await turnoverResponse.json();
-      console.log('📊 Dados brutos de turnover:', turnoverData);
-      
-      const rawData = turnoverData[0] || { 
-        mes: new Date().getMonth() + 1,
-        ano: new Date().getFullYear(),
-        contratacoes: 0, 
-        demissoes: 0, 
-        funcionarios_ativos: 1 
-      };
-      
-      // Aplicar fórmula DAX: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
-      const taxaTurnover = ((rawData.contratacoes + rawData.demissoes) / 2) / rawData.funcionarios_ativos * 100;
-      
-      const finalTurnoverData = {
-        ...rawData,
-        taxa_turnover: Number(taxaTurnover.toFixed(2))
-      };
-
-      console.log('✅ Dados finais de turnover calculados:', finalTurnoverData);
-      res.json({ 
-        success: true, 
-        data: finalTurnoverData,
         timestamp: new Date().toISOString(),
-        mode: "production-real",
-        company_code: opusCode
+        mode: "column-investigation"
       });
     } catch (error) {
       console.error('ERROR /api/senior/turnover-chart:', error);
