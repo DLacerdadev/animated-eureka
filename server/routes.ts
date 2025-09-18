@@ -302,33 +302,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📅 Calculando para período: ${mes}/${ano} (fim do período: ${endOfPeriod})`);
 
-      // 🎯 FÓRMULA CORRETA BASEADA NO DOCUMENTO DO BI
-      // Baseado no documento: filtro por tipo_func = 1 (tipcol = 1) + funcionários ativos no período
-      // Funcionário ativo = admitido até o período E (sem demissão OU demissão após o período)
+      // 🎯 FÓRMULA EXATA BASEADA NO DOCUMENTO POWER BI
+      // Descoberta: caudem = 0 representa transferências, não demissões reais!
+      // Baseado no documento: tipo_func = 1 + funcionários ativos (incluindo transferidos)
       
-      let activeEmployeesQuery: string;
-      
-      if (mes === 9 && ano === 2025) {
-        // Setembro: 441 ✅ PERFEITO (incluir tipo 2 desde 15/11/2022)
-        activeEmployeesQuery = `
-          SELECT COUNT(*) as funcionarios_ativos
-          FROM [${MSSQL_DB}].dbo.R034FUN
-          WHERE numemp = ${empresa}
-          AND datadm <= '${endOfPeriod}'
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-          AND (tipcol = 1 OR (tipcol = 2 AND datadm >= '2022-11-15'))
-        `;
-      } else {
-        // Fórmula padrão baseada no documento do BI: apenas tipo_func = 1 (tipcol = 1)
-        activeEmployeesQuery = `
-          SELECT COUNT(*) as funcionarios_ativos
-          FROM [${MSSQL_DB}].dbo.R034FUN
-          WHERE numemp = ${empresa}
-          AND tipcol = 1
-          AND datadm <= '${endOfPeriod}'
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-        `;
-      }
+      const activeEmployeesQuery = `
+        SELECT COUNT(*) as funcionarios_ativos
+        FROM [${MSSQL_DB}].dbo.R034FUN
+        WHERE numemp = ${empresa}
+        AND tipcol = 1
+        AND datadm <= '${endOfPeriod}'
+        AND (
+          datafa IS NULL 
+          OR YEAR(datafa) = 1900 
+          OR caudem = 0
+        )
+      `;
 
       const response = await fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
@@ -392,12 +381,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           empresa: empresa,
           detalhes: {
             periodo: `${mes}/${ano}`,
-            filtros: mes === 9 && ano === 2025 
-              ? "Tipo 1 + Tipo 2 (>=15/11/2022), Opus Consultoria Ltda" 
-              : "Tipo 1 (tipcol=1), Opus Consultoria Ltda - baseado no documento BI",
-            precisao_setembro: mes === 9 && ano === 2025 ? `Target: 441 → Resultado: ${count} ✅` : undefined,
-            status: mes === 9 && ano === 2025 ? "FÓRMULA EXATA DO BI ✅" : "Fórmula baseada no documento BI (em calibração)",
-            nota: "Implementado conforme documento Power BI fornecido"
+            filtros: "Tipo_func=1 (tipcol=1) + Ativos/Transferidos (caudem=0), Opus Consultoria Ltda",
+            descoberta: "caudem=0 = transferências (não demissões reais)",
+            status: "FÓRMULA BASEADA NO DOCUMENTO BI FORNECIDO ✅",
+            nota: "Implementado conforme lógica do Power BI - funcionários ativos incluem transferidos"
           },
           timestamp: new Date().toISOString()
         }
