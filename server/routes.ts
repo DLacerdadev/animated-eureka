@@ -132,11 +132,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Senior API proxy endpoints - protege a chave API no backend
+  // ========== HIALINX API INTEGRATION ==========
+  // API para acessar o SQL Server da Hialinx seguindo o padrão fornecido
   const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
-  
-  // PRODUÇÃO: Exige configuração segura da API key
   const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+  const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123'; // Nome do database
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   let isApiKeyValid = false;
@@ -164,14 +164,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isApiKeyValid = true;
     console.log("✅ API key válida configurada");
   }
+
+  // Middleware simples de API Key (seguindo padrão Hialinx)
+  function requireApiKey(req: any, res: any, next: any) {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey || apiKey !== SENIOR_API_KEY) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+    next();
+  }
   
-  // Queries pré-definidas com colunas específicas (sem SELECT *)
+  // ========== ROTAS DA API HIALINX ==========
+
+  // Rota básica de informações (seguindo padrão Hialinx)
+  app.get('/', (req, res) => {
+    res.type('text').send(
+`API Dashboard HR - Senior Integration
+
+Rotas principais:
+  - GET  /                 (informações da API)
+  - GET  /api/health       (health check)
+  - GET  /api/tables       (header: x-api-key) - Lista tabelas do banco
+  - POST /api/query        (header: x-api-key, body: { "sqlText": "SELECT ..." })
+
+Obs:
+  * As consultas devem referenciar o DB explicitamente, ex.:
+      SELECT TOP 5 * FROM [${MSSQL_DB}].INFORMATION_SCHEMA.TABLES
+  * Somente SELECT é permitido.
+  * Sua API_KEY atual é definida no .env (não exibida aqui).
+
+Dashboard HR - Integração com Senior Platform`
+    );
+  });
+
+  // Health check (seguindo padrão Hialinx)
+  app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
+
+  // Lista tabelas do banco usando 3-part name (seguindo padrão Hialinx)
+  app.get('/api/tables', requireApiKey, async (req, res) => {
+    // Em desenvolvimento sem API key válida, retorna dados simulados
+    if (!isApiKeyValid) {
+      return res.json([
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r070nau' },
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r022pub' },
+        { TABLE_SCHEMA: 'INFORMATION_SCHEMA', TABLE_NAME: 'TABLES' }
+      ]);
+    }
+    
+    try {
+      const query = `
+        SELECT TABLE_SCHEMA, TABLE_NAME
+        FROM [${MSSQL_DB}].INFORMATION_SCHEMA.TABLES
+        ORDER BY TABLE_SCHEMA, TABLE_NAME;
+      `;
+      
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY!,
+        },
+        body: JSON.stringify({ sqlText: query }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        res.json(data);
+      } else {
+        res.status(response.status).json({ 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        });
+      }
+    } catch (error) {
+      console.error('DB ERROR /api/tables:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Erro ao buscar tabelas" });
+    }
+  });
+
+  // Executa apenas SELECT com proteções (seguindo padrão Hialinx)
+  app.post('/api/query', requireApiKey, async (req, res) => {
+    try {
+      let sqlText = String(req.body?.sqlText || '').trim();
+
+      // Permitir apenas SELECT
+      if (!/^select\b/i.test(sqlText)) {
+        return res.status(400).json({ error: 'Somente SELECT é permitido.' });
+      }
+      
+      // Bloquear comandos perigosos (seguindo padrão Hialinx)
+      const dangerousCommands = /\b(INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|GRANT|REVOKE|BACKUP)\b/i;
+      if (dangerousCommands.test(sqlText)) {
+        return res.status(400).json({ error: 'Apenas SELECT simples é permitido.' });
+      }
+
+      // Ajuda: se o usuário esquecer de prefixar INFORMATION_SCHEMA com o DB, corrigimos (seguindo padrão Hialinx)
+      sqlText = sqlText.replace(
+        /\bFROM\s+INFORMATION_SCHEMA\./ig,
+        `FROM [${MSSQL_DB}].INFORMATION_SCHEMA.`
+      );
+
+      // Em desenvolvimento sem API key válida, retorna dados simulados
+      if (!isApiKeyValid) {
+        const mockData = getMockDataForDynamicQuery(sqlText);
+        console.log(`🔍 QUERY SIMULADA: ${sqlText.substring(0, 100)}...`);
+        return res.json(mockData);
+      }
+
+      // Auditoria de segurança
+      console.log(`🔍 QUERY EXECUTADA: ${sqlText.substring(0, 100)}... em ${new Date().toISOString()}`);
+
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY!,
+        },
+        body: JSON.stringify({ sqlText }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        res.json(data);
+      } else {
+        res.status(response.status).json({ 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        });
+      }
+    } catch (error) {
+      console.error('DB ERROR /api/query:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Erro ao executar query" });
+    }
+  });
+
+  // Queries pré-definidas com colunas específicas (mantendo funcionalidade existente)
   const ALLOWED_QUERIES = {
-    'list_tables': 'SELECT TOP 20 TABLE_NAME FROM [opus_hcm_221123].INFORMATION_SCHEMA.TABLES',
-    'employee_count': 'SELECT COUNT(*) as total FROM [opus_hcm_221123].dbo.r070nau WHERE sitafa = 1',
-    'employee_basic': 'SELECT TOP 50 numcad, tipcol, sitafa FROM [opus_hcm_221123].dbo.r070nau WHERE sitafa = 1',
-    'payroll_summary': 'SELECT TOP 30 numcad, comrub, periodo FROM [opus_hcm_221123].dbo.r022pub WHERE comrub IN (1, 2, 3)',
-    'demographics_basic': 'SELECT sexo, COUNT(*) as count FROM [opus_hcm_221123].dbo.r070nau WHERE sitafa = 1 GROUP BY sexo',
+    'list_tables': `SELECT TOP 20 TABLE_SCHEMA, TABLE_NAME FROM [${MSSQL_DB}].INFORMATION_SCHEMA.TABLES ORDER BY TABLE_SCHEMA, TABLE_NAME`,
+    'employee_count': `SELECT COUNT(*) as total FROM [${MSSQL_DB}].dbo.r070nau WHERE sitafa = 1`,
+    'employee_basic': `SELECT TOP 50 numcad, tipcol, sitafa FROM [${MSSQL_DB}].dbo.r070nau WHERE sitafa = 1`,
+    'payroll_summary': `SELECT TOP 30 numcad, comrub, periodo FROM [${MSSQL_DB}].dbo.r022pub WHERE comrub IN (1, 2, 3)`,
+    'demographics_basic': `SELECT sexo, COUNT(*) as count FROM [${MSSQL_DB}].dbo.r070nau WHERE sitafa = 1 GROUP BY sexo`,
   } as const;
   
   // Controle de acesso por query (RBAC básico)
@@ -382,9 +513,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function getMockDataForQuery(queryId: QueryId): any[] {
     const mockData = {
       'list_tables': [
-        { TABLE_NAME: 'employees' },
-        { TABLE_NAME: 'payroll' },
-        { TABLE_NAME: 'departments' }
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r070nau' },
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r022pub' },
+        { TABLE_SCHEMA: 'INFORMATION_SCHEMA', TABLE_NAME: 'TABLES' }
       ],
       'employee_count': [{ total: 150 }],
       'employee_basic': [
@@ -403,6 +534,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ],
     };
     return mockData[queryId] || [];
+  }
+
+  // Mock data para consultas dinâmicas (seguindo padrão Hialinx)
+  function getMockDataForDynamicQuery(sqlText: string): any[] {
+    const upperSql = sqlText.toUpperCase();
+    
+    // Se é uma query sobre INFORMATION_SCHEMA.TABLES
+    if (upperSql.includes('INFORMATION_SCHEMA.TABLES')) {
+      return [
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r070nau', TABLE_TYPE: 'BASE TABLE' },
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r022pub', TABLE_TYPE: 'BASE TABLE' },
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r035fun', TABLE_TYPE: 'BASE TABLE' },
+        { TABLE_SCHEMA: 'dbo', TABLE_NAME: 'r001tco', TABLE_TYPE: 'BASE TABLE' }
+      ];
+    }
+    
+    // Se é uma query sobre funcionários (r070nau)
+    if (upperSql.includes('R070NAU')) {
+      if (upperSql.includes('COUNT')) {
+        return [{ total: 150 }];
+      } else {
+        return [
+          { numcad: '001', tipcol: 'CLT', sitafa: 1, nomfun: 'João Silva' },
+          { numcad: '002', tipcol: 'CLT', sitafa: 1, nomfun: 'Maria Santos' },
+          { numcad: '003', tipcol: 'CLT', sitafa: 1, nomfun: 'Pedro Oliveira' }
+        ];
+      }
+    }
+    
+    // Se é uma query sobre folha de pagamento (r022pub)
+    if (upperSql.includes('R022PUB')) {
+      return [
+        { numcad: '001', comrub: 1, periodo: '2024-01', valcal: 5000.00 },
+        { numcad: '002', comrub: 2, periodo: '2024-01', valcal: 4500.00 },
+        { numcad: '003', comrub: 3, periodo: '2024-01', valcal: 6000.00 }
+      ];
+    }
+    
+    // Mock genérico
+    return [
+      { resultado: 'Mock data', query: sqlText.substring(0, 50) + '...', timestamp: new Date().toISOString() }
+    ];
   }
 
   function getQueryDescription(queryId: QueryId): string {
