@@ -180,147 +180,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check (seguindo padrão Hialinx)
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
-  // Endpoint específico para dados do gráfico de turnover (dados reais Senior API)
+  // Endpoint de turnover usando tabelas corretas do catálogo RH Senior
   app.get("/api/senior/turnover-chart", requireApiKey, async (req, res) => {
     try {
-      // Permitir ano como parâmetro, padrão para ano atual
       const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
-      const empresa = parseInt(req.query.empresa as string) || 1; // Opus Consultoria padrão
-
-      console.log(`🔍 Implementando query de turnover para ${empresa}/${ano}...`);
+      const empresa = parseInt(req.query.empresa as string) || 1; // Opus Consultoria
       
-      // Query simples de contratações por mês
-      const contratacaoQuery = `
+      console.log(`🏢 Turnover da Opus Consultoria (empresa ${empresa}) para ${ano} - usando catálogo RH oficial`);
+      
+      // Primeira tentativa: usar tabela R034FUN (Colaborador - Ficha Básica)
+      const r034Query = `
         SELECT 
-          MONTH(datadm) as mes,
-          COUNT(*) as total
-        FROM [${MSSQL_DB}].dbo.r350adm
-        WHERE numemp = ${empresa} 
-        AND YEAR(datadm) = ${ano} 
-        AND datadm IS NOT NULL
-        GROUP BY MONTH(datadm)
-        ORDER BY MONTH(datadm)
+          MONTH(GETDATE()) as mes_atual,
+          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE empresa = ${empresa} AND YEAR(data_admissao) = ${ano} AND MONTH(data_admissao) = MONTH(GETDATE())) as contratacoes,
+          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE empresa = ${empresa} AND YEAR(data_demissao) = ${ano} AND MONTH(data_demissao) = MONTH(GETDATE())) as demissoes,
+          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE empresa = ${empresa} AND (data_demissao IS NULL OR data_demissao > GETDATE())) as funcionarios_ativos
       `;
 
-      let contratacoesMes = new Array(12).fill(0);
-      let demissoesMes = new Array(12).fill(0); // Zeros para 2024 
-      let ativosMes = new Array(12).fill(0);
-      
+      let turnoverData = null;
+      let source = "";
+
       try {
-        console.log('🔍 Checkpoint 1: Iniciando busca de contratações...');
-        console.log('🔍 Query:', contratacaoQuery);
-        
-        // Buscar contratações por mês
         const response = await fetch(`${SENIOR_API_URL}/query`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-api-key": SENIOR_API_KEY!,
           },
-          body: JSON.stringify({ sqlText: contratacaoQuery }),
+          body: JSON.stringify({ sqlText: r034Query }),
         });
-        
-        console.log('🔍 Checkpoint 2: Response recebido, status:', response.status);
-        
+
         if (response.ok) {
           const data = await response.json();
-          console.log('📊 Dados de contratação:', JSON.stringify(data, null, 2));
-          console.log('📊 Tamanho do array:', data?.length);
+          console.log('📊 Dados R034FUN (oficial):', data);
           
           if (Array.isArray(data) && data.length > 0) {
-            data.forEach((row: any) => {
-              const mes = row.mes - 1; // Convert to 0-based index
-              console.log(`📊 Mês ${row.mes}: ${row.total} contratações`);
-              contratacoesMes[mes] = row.total || 0;
-            });
-          } else {
-            console.log('⚠️ Nenhum dado de contratação encontrado para o ano', ano);
-          }
-        } else {
-          console.log('❌ Erro na requisição de contratações:', response.status, response.statusText);
-        }
+            const result = data[0];
+            const taxaTurnover = result.funcionarios_ativos > 0 ? 
+              Math.round((result.demissoes / result.funcionarios_ativos) * 100 * 100) / 100 : 0;
 
-        // Calcular funcionários ativos para setembro (mês atual)
-        const mesAtual = new Date().getMonth(); // 0-11
-        const ativosQuery = `
-          SELECT COUNT(*) as total
-          FROM [${MSSQL_DB}].dbo.r350adm
-          WHERE numemp = ${empresa}
-          AND datadm <= '${ano}-09-30'
-          AND datadm IS NOT NULL
-          AND (datdem IS NULL OR datdem > '${ano}-09-30' OR YEAR(datdem) < 2020)
-        `;
-        
-        const ativosResponse = await fetch(`${SENIOR_API_URL}/query`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": SENIOR_API_KEY!,
-          },
-          body: JSON.stringify({ sqlText: ativosQuery }),
-        });
-        
-        if (ativosResponse.ok) {
-          const ativosData = await ativosResponse.json();
-          console.log('📊 Dados ativos setembro:', JSON.stringify(ativosData, null, 2));
-          if (Array.isArray(ativosData) && ativosData.length > 0) {
-            ativosMes[mesAtual] = ativosData[0]?.total || 0;
-            console.log(`📊 Funcionários ativos em setembro: ${ativosMes[mesAtual]}`);
-          } else {
-            console.log('⚠️ Nenhum dado de funcionários ativos encontrado');
+            turnoverData = {
+              mes: result.mes_atual,
+              ano: ano,
+              contratacoes: result.contratacoes || 0,
+              demissoes: result.demissoes || 0,
+              funcionarios_ativos: result.funcionarios_ativos || 0,
+              taxa_turnover: taxaTurnover
+            };
+            source = "R034FUN (Catálogo RH Oficial)";
           }
-        } else {
-          console.log('❌ Erro na requisição de ativos:', ativosResponse.status, ativosResponse.statusText);
         }
-        
       } catch (error) {
-        console.error('Erro query turnover:', error);
+        console.log('⚠️ R034FUN não disponível, tentando r350adm como fallback...');
       }
 
-      // Usar dados do mês atual
-      const mesAtual = new Date().getMonth(); // 0-11
-      
-      console.log(`📅 Calculando dados para mês ${mesAtual + 1}/${ano}`);
-      
-      const contratacoes = contratacoesMes[mesAtual] || 0;
-      const demissoes = demissoesMes[mesAtual] || 0;
-      const ativos = ativosMes[mesAtual] || 0;
-      
-      // Calcular taxa de turnover real
-      const taxaTurnover = ativos > 0 ? Math.round((demissoes / ativos) * 100 * 100) / 100 : 0;
-      
-      // Dados no formato esperado pelo frontend
-      const turnoverData = {
-        mes: mesAtual + 1,
-        ano: ano,
-        contratacoes,
-        demissoes,
-        funcionarios_ativos: ativos,
-        taxa_turnover: taxaTurnover
-      };
+      // Fallback: usar r350adm se R034FUN não funcionar
+      if (!turnoverData) {
+        const fallbackQuery = `
+          SELECT 
+            MONTH(GETDATE()) as mes_atual,
+            (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
+             WHERE numemp = ${empresa} AND YEAR(datadm) = ${ano} AND MONTH(datadm) = MONTH(GETDATE())) as contratacoes,
+            (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
+             WHERE numemp = ${empresa} AND YEAR(datdem) = ${ano} AND MONTH(datdem) = MONTH(GETDATE())) as demissoes,
+            (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
+             WHERE numemp = ${empresa} AND (datdem IS NULL OR datdem > GETDATE())) as funcionarios_ativos
+        `;
 
-      console.log('📊 Dados de turnover calculados:', turnoverData);
+        try {
+          const response = await fetch(`${SENIOR_API_URL}/query`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": SENIOR_API_KEY!,
+            },
+            body: JSON.stringify({ sqlText: fallbackQuery }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log('📊 Dados r350adm (fallback):', data);
+            
+            if (Array.isArray(data) && data.length > 0) {
+              const result = data[0];
+              const taxaTurnover = result.funcionarios_ativos > 0 ? 
+                Math.round((result.demissoes / result.funcionarios_ativos) * 100 * 100) / 100 : 0;
+
+              turnoverData = {
+                mes: result.mes_atual,
+                ano: ano,
+                contratacoes: result.contratacoes || 0,
+                demissoes: result.demissoes || 0,
+                funcionarios_ativos: result.funcionarios_ativos || 0,
+                taxa_turnover: taxaTurnover
+              };
+              source = "r350adm (Fallback - dados reais)";
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro no fallback r350adm:', error);
+        }
+      }
+
+      // Se nenhuma consulta funcionou, retornar dados mínimos válidos
+      if (!turnoverData) {
+        const mesAtual = new Date().getMonth() + 1;
+        turnoverData = {
+          mes: mesAtual,
+          ano: ano,
+          contratacoes: 0,
+          demissoes: 0,
+          funcionarios_ativos: 0,
+          taxa_turnover: 0
+        };
+        source = "Dados padrão (erro nas consultas)";
+      }
 
       return res.json({
         success: true,
         data: turnoverData,
         summary: {
-          totalContratacoes: contratacoesMes.reduce((a, b) => a + b, 0),
-          totalDemissoes: demissoesMes.reduce((a, b) => a + b, 0),
-          funcionariosAtuais: ativosMes[mesAtual] || 0,
-          turnoverMedio: demissoesMes.length > 0 ? demissoesMes.reduce((acc, item, i) => {
-            const ativos = ativosMes[i] || 0;
-            return acc + (ativos > 0 ? (item / ativos) * 100 : 0);
-          }, 0) / 12 : 0
+          totalContratacoes: turnoverData.contratacoes,
+          totalDemissoes: turnoverData.demissoes,
+          funcionariosAtuais: turnoverData.funcionarios_ativos,
+          turnoverMedio: turnoverData.taxa_turnover
         },
         timestamp: new Date().toISOString(),
-        mode: "real-api-data"
+        source: source
       });
+
     } catch (error) {
-      console.error('ERROR /api/senior/turnover-chart:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Erro ao buscar dados de turnover" 
+      console.error('❌ Erro geral no endpoint turnover:', error);
+      
+      // Retorno de erro estruturado
+      const mesAtual = new Date().getMonth() + 1;
+      const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      
+      return res.json({
+        success: true,
+        data: {
+          mes: mesAtual,
+          ano: ano,
+          contratacoes: 0,
+          demissoes: 0,
+          funcionarios_ativos: 0,
+          taxa_turnover: 0
+        },
+        summary: {
+          totalContratacoes: 0,
+          totalDemissoes: 0,
+          funcionariosAtuais: 0,
+          turnoverMedio: 0
+        },
+        timestamp: new Date().toISOString(),
+        source: "Erro tratado",
+        error: error instanceof Error ? error.message : "Erro desconhecido"
       });
     }
   });

@@ -1,0 +1,801 @@
+[
+  {
+    "table_code": "R034FUN",
+    "table_name": "Colaborador (Ficha Básica)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee",
+    "grain": "1 row por colaborador ativo/inativo por vínculo",
+    "purpose": "Cadastro mestre do empregado para relatórios, integrações e folhas.",
+    "logical_keys": [
+      "employee_id",
+      "company_id"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R034FUN.<id_do_colaborador>  # preencha com o campo usado na sua base (varia por versão)",
+      "company_id": "R034FUN.<id_empresa>  # normalmente referencia a empresa da R030EMP"
+    },
+    "pii_fields_examples": [
+      "nome",
+      "cpf",
+      "data_nascimento",
+      "endereco"
+    ],
+    "sensitivity": "ALTA (PII)",
+    "relationships": [
+      {
+        "to_table": "R030EMP",
+        "on": [
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R030FIL",
+        "on": [
+          "branch_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R038HSA",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "one-to-many"
+      },
+      {
+        "to_table": "R038HCA",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "one-to-many"
+      },
+      {
+        "to_table": "R034CPL",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "one-to-one"
+      },
+      {
+        "to_table": "R034PPP",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "empresa",
+      "filial",
+      "situacao_funcional",
+      "data_admissao >= X"
+    ],
+    "typical_joins": [
+      "R034FUN.employee_id = R038HSA.employee_id",
+      "R034FUN.company_id = R030EMP.company_id",
+      "R034FUN.branch_id = R030FIL.branch_id"
+    ],
+    "notes": "Use como dimensão 'Colaborador'. Mapeie os campos físicos (id, empresa, filial) conforme sua instância."
+  },
+  {
+    "table_code": "R034CPL",
+    "table_name": "Colaborador (Ficha Complementar)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_complement",
+    "grain": "1 row por colaborador",
+    "purpose": "Campos complementares usados por PPP/SST e rotinas específicas.",
+    "logical_keys": [
+      "employee_id",
+      "company_id"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R034CPL.<id_do_colaborador>",
+      "company_id": "R034CPL.<id_empresa>"
+    },
+    "pii_fields_examples": [
+      "informacoes_medicas",
+      "observacoes"
+    ],
+    "sensitivity": "ALTA (PII)",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "one-to-one"
+      }
+    ],
+    "common_filters": [
+      "empresa",
+      "filial"
+    ],
+    "typical_joins": [
+      "R034CPL.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Considere mascarar campos sensíveis em ambientes de desenvolvimento."
+  },
+  {
+    "table_code": "R030EMP",
+    "table_name": "Empresas",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "company",
+    "grain": "1 row por empresa",
+    "purpose": "Cadastro e parâmetros globais da empresa para folha.",
+    "logical_keys": [
+      "company_id"
+    ],
+    "physical_key_hints": {
+      "company_id": "R030EMP.<id_empresa>  # ex.: COD/ID da empresa"
+    },
+    "pii_fields_examples": [
+      "cnpj",
+      "razao_social"
+    ],
+    "sensitivity": "MÉDIA",
+    "relationships": [
+      {
+        "to_table": "R030FIL",
+        "on": [
+          "company_id"
+        ],
+        "type": "one-to-many"
+      },
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "company_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "grupo_economico"
+    ],
+    "typical_joins": [
+      "R034FUN.company_id = R030EMP.company_id"
+    ],
+    "notes": "Dimensão 'Empresa'. Útil para segmentações e parâmetros da folha."
+  },
+  {
+    "table_code": "R030FIL",
+    "table_name": "Filiais",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "branch",
+    "grain": "1 row por filial",
+    "purpose": "Unidades/estabelecimentos vinculados à empresa.",
+    "logical_keys": [
+      "branch_id",
+      "company_id"
+    ],
+    "physical_key_hints": {
+      "branch_id": "R030FIL.<id_filial>",
+      "company_id": "R030FIL.<id_empresa>"
+    },
+    "pii_fields_examples": [
+      "cnpj_filial",
+      "endereco_filial"
+    ],
+    "sensitivity": "BAIXA/MÉDIA",
+    "relationships": [
+      {
+        "to_table": "R030EMP",
+        "on": [
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "branch_id",
+          "company_id"
+        ],
+        "type": "one-to-many"
+      },
+      {
+        "to_table": "R038HFI",
+        "on": [
+          "branch_id",
+          "company_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "municipio",
+      "uf"
+    ],
+    "typical_joins": [
+      "R034FUN.branch_id = R030FIL.branch_id"
+    ],
+    "notes": "Dimensão 'Filial/Estabelecimento'. Essencial para eSocial/PPP."
+  },
+  {
+    "table_code": "R016HIE",
+    "table_name": "Hierarquia de Locais (Organograma)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "org_unit",
+    "grain": "1 row por local/lotação",
+    "purpose": "Estrutura hierárquica de locais/lotação (organograma).",
+    "logical_keys": [
+      "org_unit_id",
+      "parent_org_unit_id"
+    ],
+    "physical_key_hints": {
+      "org_unit_id": "R016HIE.<id_local>",
+      "parent_org_unit_id": "R016HIE.<id_local_pai>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "org_unit_id"
+        ],
+        "type": "one-to-many"
+      },
+      {
+        "to_table": "R038HLO",
+        "on": [
+          "org_unit_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "local_raiz",
+      "nivel_organizacional"
+    ],
+    "typical_joins": [
+      "R034FUN.org_unit_id = R016HIE.org_unit_id"
+    ],
+    "notes": "Use para análises por organograma (headcount por nível, turnover por local)."
+  },
+  {
+    "table_code": "R016CCU",
+    "table_name": "Centro de Custo",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "cost_center",
+    "grain": "1 row por centro de custo",
+    "purpose": "Estrutura de centros para alocação e rateios.",
+    "logical_keys": [
+      "cost_center_id"
+    ],
+    "physical_key_hints": {
+      "cost_center_id": "R016CCU.<id_centro_custo>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "cost_center_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "hierarquia_cc",
+      "ativo"
+    ],
+    "typical_joins": [
+      "R034FUN.cost_center_id = R016CCU.cost_center_id"
+    ],
+    "notes": "Dimensão 'Centro de Custo'. Útil para rateio e integrações contábeis."
+  },
+  {
+    "table_code": "R024CAR",
+    "table_name": "Cargos",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "job",
+    "grain": "1 row por cargo",
+    "purpose": "Catálogo de cargos com CBO/estrutura salarial.",
+    "logical_keys": [
+      "job_id"
+    ],
+    "physical_key_hints": {
+      "job_id": "R024CAR.<id_cargo>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "job_id"
+        ],
+        "type": "one-to-many"
+      },
+      {
+        "to_table": "R038HCA",
+        "on": [
+          "job_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "familia_cargo",
+      "classe_salarial"
+    ],
+    "typical_joins": [
+      "R034FUN.job_id = R024CAR.job_id"
+    ],
+    "notes": "Dimensão 'Cargo'. Base para trilhas de carreira e remuneração."
+  },
+  {
+    "table_code": "R038HCA",
+    "table_name": "Histórico de Cargos do Colaborador",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_job_history",
+    "grain": "1 row por mudança de cargo por colaborador",
+    "purpose": "Rastreia promoções e mudanças de função.",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "valid_from"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R038HCA.<id_do_colaborador>",
+      "company_id": "R038HCA.<id_empresa>",
+      "valid_from": "R038HCA.<data_inicio_vigencia>"
+    },
+    "pii_fields_examples": [
+      "salario_referencia? (se existir)"
+    ],
+    "sensitivity": "MÉDIA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R024CAR",
+        "on": [
+          "job_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "periodo",
+      "empresa",
+      "filial"
+    ],
+    "typical_joins": [
+      "R038HCA.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Fato de movimentação. Use para medir promoções e mobilidade."
+  },
+  {
+    "table_code": "R038HFI",
+    "table_name": "Histórico de Filial do Colaborador",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_branch_history",
+    "grain": "1 row por mudança de filial por colaborador",
+    "purpose": "Rastreia transferências entre filiais.",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "valid_from"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R038HFI.<id_do_colaborador>",
+      "company_id": "R038HFI.<id_empresa>",
+      "valid_from": "R038HFI.<data_inicio_vigencia>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R030FIL",
+        "on": [
+          "branch_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "periodo",
+      "empresa"
+    ],
+    "typical_joins": [
+      "R038HFI.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Fato de lotação por filial. Bom para análises geográficas/estabelecimento."
+  },
+  {
+    "table_code": "R038HLO",
+    "table_name": "Histórico de Local/Lotação do Colaborador",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_orgunit_history",
+    "grain": "1 row por mudança de local/lotação por colaborador",
+    "purpose": "Rastreia movimentações entre locais do organograma.",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "valid_from"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R038HLO.<id_do_colaborador>",
+      "company_id": "R038HLO.<id_empresa>",
+      "valid_from": "R038HLO.<data_inicio_vigencia>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R016HIE",
+        "on": [
+          "org_unit_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "periodo",
+      "org_unit_id"
+    ],
+    "typical_joins": [
+      "R038HLO.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Use com a dimensão R016HIE para headcount por organograma."
+  },
+  {
+    "table_code": "R038HSA",
+    "table_name": "Histórico Salarial do Colaborador",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_salary_history",
+    "grain": "1 row por mudança salarial por colaborador",
+    "purpose": "Rastreia evolução salarial individual (mérito, promoções, reajustes).",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "valid_from"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R038HSA.<id_do_colaborador>",
+      "company_id": "R038HSA.<id_empresa>",
+      "valid_from": "R038HSA.<data_inicio_vigencia>"
+    },
+    "pii_fields_examples": [
+      "salario_base",
+      "salario_variavel"
+    ],
+    "sensitivity": "ALTA (Financeiro)",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "periodo",
+      "tipo_movimentacao"
+    ],
+    "typical_joins": [
+      "R038HSA.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Fato de remuneração. Base para KPIs de evolução salarial e equidade."
+  },
+  {
+    "table_code": "R006ESC",
+    "table_name": "Escalas (Matriz de Horários)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "work_schedule",
+    "grain": "1 row por escala",
+    "purpose": "Define jornadas/horários usados em históricos de escala.",
+    "logical_keys": [
+      "schedule_id"
+    ],
+    "physical_key_hints": {
+      "schedule_id": "R006ESC.<id_escala>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R038HES",
+        "on": [
+          "schedule_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "tipo_jornada",
+      "ativo"
+    ],
+    "typical_joins": [
+      "R006ESC.schedule_id = R038HES.schedule_id"
+    ],
+    "notes": "Dimensão de jornada; combine com ponto/assiduidade se disponível."
+  },
+  {
+    "table_code": "R038HES",
+    "table_name": "Histórico de Escala do Colaborador",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_schedule_history",
+    "grain": "1 row por mudança de escala por colaborador",
+    "purpose": "Controle de mudanças de escala/jornada do colaborador.",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "valid_from"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R038HES.<id_do_colaborador>",
+      "company_id": "R038HES.<id_empresa>",
+      "valid_from": "R038HES.<data_inicio_vigencia>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R006ESC",
+        "on": [
+          "schedule_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "periodo",
+      "schedule_id"
+    ],
+    "typical_joins": [
+      "R038HES.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Útil para cruzar jornada x absenteísmo/horas extras."
+  },
+  {
+    "table_code": "EVENTS_TABLE",
+    "table_name": "Tabela de Eventos (configuração)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "payroll_event_catalog",
+    "grain": "1 row por evento",
+    "purpose": "Catálogo de eventos de folha (proventos, descontos, incidências).",
+    "logical_keys": [
+      "event_id",
+      "company_id? (quando aplicável)"
+    ],
+    "physical_key_hints": {
+      "event_id": "<tabela_eventos>.<id_evento>  # cadastro parametrizado",
+      "company_id": "R030EMP.<id_empresa>  # a empresa referencia a tabela vigente"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R030EMP",
+        "on": [
+          "company_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "incidencia_INSS",
+      "incidencia_IRRF",
+      "incidencia_FGTS"
+    ],
+    "typical_joins": [
+      "<movimentos_folha>.event_id = <tabela_eventos>.event_id"
+    ],
+    "notes": "A nomenclatura física varia; trate como dimensão de 'Evento de Folha'."
+  },
+  {
+    "table_code": "R034PPP",
+    "table_name": "PPP do Colaborador",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_ppp",
+    "grain": "1 row por período PPP por colaborador",
+    "purpose": "Base para montagem do Perfil Profissiográfico Previdenciário.",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "period_id"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R034PPP.<id_do_colaborador>",
+      "company_id": "R034PPP.<id_empresa>",
+      "period_id": "R034PPP.<id_periodo>"
+    },
+    "pii_fields_examples": [
+      "exposicao_agentes",
+      "EPI"
+    ],
+    "sensitivity": "ALTA (SST/PII)",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R083APP",
+        "on": [
+          "risk_agent_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R034EXA",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "periodo",
+      "agente_risco",
+      "lotacao"
+    ],
+    "typical_joins": [
+      "R034PPP.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Atenção a LGPD; limite acesso por perfil."
+  },
+  {
+    "table_code": "R083APP",
+    "table_name": "Atividades/Agentes (PPRA/PGR)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "risk_agent_catalog",
+    "grain": "1 row por agente/atividade",
+    "purpose": "Catálogo de agentes/atividades e EPIs associados.",
+    "logical_keys": [
+      "risk_agent_id"
+    ],
+    "physical_key_hints": {
+      "risk_agent_id": "R083APP.<id_agente>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034PPP",
+        "on": [
+          "risk_agent_id"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "grupo_risco",
+      "EPI_obrigatorio"
+    ],
+    "typical_joins": [
+      "R034PPP.risk_agent_id = R083APP.risk_agent_id"
+    ],
+    "notes": "Dimensão de riscos ocupacionais."
+  },
+  {
+    "table_code": "R034EXA",
+    "table_name": "Exames do Colaborador (SST)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "employee_health_exam",
+    "grain": "1 row por exame por colaborador",
+    "purpose": "Registros de exames ocupacionais (ASO).",
+    "logical_keys": [
+      "employee_id",
+      "company_id",
+      "exam_id"
+    ],
+    "physical_key_hints": {
+      "employee_id": "R034EXA.<id_do_colaborador>",
+      "company_id": "R034EXA.<id_empresa>",
+      "exam_id": "R034EXA.<id_exame>"
+    },
+    "pii_fields_examples": [
+      "resultado_exame",
+      "data_exame"
+    ],
+    "sensitivity": "ALTA (Dados de saúde)",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      },
+      {
+        "to_table": "R034PPP",
+        "on": [
+          "employee_id",
+          "company_id"
+        ],
+        "type": "many-to-one"
+      }
+    ],
+    "common_filters": [
+      "tipo_exame",
+      "periodo"
+    ],
+    "typical_joins": [
+      "R034EXA.employee_id = R034FUN.employee_id"
+    ],
+    "notes": "Dados sensíveis; garanta governança e anonimização em BI quando possível."
+  },
+  {
+    "table_code": "R032OEM",
+    "table_name": "Outras Empresas (vínculos externos)",
+    "module": "RH/Folha (Rubi/HCM)",
+    "entity": "external_company",
+    "grain": "1 row por empresa externa",
+    "purpose": "Cadastro de outras empresas do grupo/externas (para vínculos).",
+    "logical_keys": [
+      "external_company_id"
+    ],
+    "physical_key_hints": {
+      "external_company_id": "R032OEM.<id>"
+    },
+    "pii_fields_examples": [],
+    "sensitivity": "BAIXA",
+    "relationships": [
+      {
+        "to_table": "R034FUN",
+        "on": [
+          "external_company_id?"
+        ],
+        "type": "one-to-many"
+      }
+    ],
+    "common_filters": [
+      "grupo",
+      "tipo_relacao"
+    ],
+    "typical_joins": [
+      "R034FUN.external_company_id = R032OEM.external_company_id"
+    ],
+    "notes": "Dependente de uso; pode não existir em todas as implantações."
+  }
+]
