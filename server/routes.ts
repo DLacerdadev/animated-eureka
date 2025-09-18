@@ -312,64 +312,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const startOfPeriod = `${ano}-${mes.toString().padStart(2, '0')}-01`;
       
-      // 🎯 FÓRMULA DAX EXATA + FILTROS DA IMAGEM BI
+      // 🎯 FÓRMULA DAX SIMPLIFICADA (sem JOINs complexos)
       const activeEmployeesQuery = `
         SELECT 
-          -- Contratações no período (com filtros BI)
-          (SELECT COUNT(DISTINCT R034FUN.numcad) 
+          -- Contratações no período
+          (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           INNER JOIN [${MSSQL_DB}].dbo.R999EMP ON R034FUN.numemp = R999EMP.numemp
-           WHERE R034FUN.numemp = ${empresa} 
-           AND R034FUN.tipcol = 1 
-           AND R999EMP.razsoc LIKE '%Opus Consultoria%'  -- nome_emp = Opus Consultoria Ltda
-           AND R034FUN.datadm >= '${startOfPeriod}' AND R034FUN.datadm <= '${endOfPeriod}'
+           WHERE numemp = ${empresa} AND tipcol = 1 
+           AND datadm >= '${startOfPeriod}' AND datadm <= '${endOfPeriod}'
           ) as contratacoes_periodo,
           
-          -- Demissões no período (com filtros BI)  
-          (SELECT COUNT(DISTINCT R034FUN.numcad) 
+          -- Demissões no período  
+          (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           INNER JOIN [${MSSQL_DB}].dbo.R999EMP ON R034FUN.numemp = R999EMP.numemp
-           WHERE R034FUN.numemp = ${empresa} 
-           AND R034FUN.tipcol = 1 
-           AND R999EMP.razsoc LIKE '%Opus Consultoria%'  -- nome_emp = Opus Consultoria Ltda
-           AND R034FUN.datafa >= '${startOfPeriod}' AND R034FUN.datafa <= '${endOfPeriod}'
-           AND R034FUN.datafa IS NOT NULL AND YEAR(R034FUN.datafa) > 1900 
-           AND R034FUN.caudem <> 0 AND R034FUN.caudem <> 6
+           WHERE numemp = ${empresa} AND tipcol = 1 
+           AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
+           AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
+           AND caudem <> 0 AND caudem <> 6
           ) as demissoes_periodo,
           
-          -- 🎯 FUNCIONÁRIOS ATIVOS = FÓRMULA DAX + FILTROS EXATOS DA IMAGEM
+          -- 🎯 FUNCIONÁRIOS ATIVOS = FÓRMULA DAX SIMPLIFICADA
+          -- Como no BI: Total admitidos - Total demitidos - Total transferidos
           (
-            -- Total contratados até o final do período (COM FILTROS BI)
-            (SELECT COUNT(DISTINCT R034FUN.numcad) 
+            -- Parte 1: Total contratados até o final do período  
+            (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
-             INNER JOIN [${MSSQL_DB}].dbo.R999EMP ON R034FUN.numemp = R999EMP.numemp
-             WHERE R034FUN.numemp = ${empresa} 
-             AND R999EMP.razsoc LIKE '%Opus Consultoria%'  -- nome_emp = Opus Consultoria Ltda
-             AND R034FUN.datadm <= '${endOfPeriod}'
-             -- Filtros da imagem: exclui transferências
-             AND NOT (R034FUN.caudem = 6)  -- causa_demiss não é "Transferencia p/ Outra Empresa"
+             WHERE numemp = ${empresa} 
+             AND tipcol IN (1,3,5)  -- Todos os tipos de contrato
+             AND datadm <= '${endOfPeriod}'
             )
             -
-            -- Menos: Total demitidos até o final do período (COM FILTROS BI)
-            (SELECT COUNT(DISTINCT R034FUN.numcad) 
+            -- Parte 2: Total demitidos acumulados até o período
+            (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
-             INNER JOIN [${MSSQL_DB}].dbo.R999EMP ON R034FUN.numemp = R999EMP.numemp
-             WHERE R034FUN.numemp = ${empresa}
-             AND R999EMP.razsoc LIKE '%Opus Consultoria%'  -- nome_emp = Opus Consultoria Ltda
-             AND R034FUN.datafa <= '${endOfPeriod}'
-             AND R034FUN.datafa IS NOT NULL AND YEAR(R034FUN.datafa) > 1900
-             AND R034FUN.caudem <> 0 AND R034FUN.caudem <> 6  -- Excluir transferências
+             WHERE numemp = ${empresa}
+             AND tipcol IN (1,3,5)
+             AND datafa <= '${endOfPeriod}'
+             AND datafa IS NOT NULL AND YEAR(datafa) > 1900
+             AND caudem <> 0 AND caudem <> 6  -- Excluir transferências (cod 6)
             )
             -
-            -- Menos: Total transferidos até o final do período (COM FILTROS BI)
-            (SELECT COUNT(DISTINCT R034FUN.numcad) 
+            -- Parte 3: Total transferidos acumulados até o período
+            (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
-             INNER JOIN [${MSSQL_DB}].dbo.R999EMP ON R034FUN.numemp = R999EMP.numemp
-             WHERE R034FUN.numemp = ${empresa}
-             AND R999EMP.razsoc LIKE '%Opus Consultoria%'  -- nome_emp = Opus Consultoria Ltda
-             AND R034FUN.datafa <= '${endOfPeriod}'
-             AND R034FUN.datafa IS NOT NULL AND YEAR(R034FUN.datafa) > 1900
-             AND R034FUN.caudem = 6  -- Apenas transferências
+             WHERE numemp = ${empresa}
+             AND tipcol IN (1,3,5)
+             AND datafa <= '${endOfPeriod}'
+             AND datafa IS NOT NULL AND YEAR(datafa) > 1900
+             AND caudem = 6  -- Apenas transferências
             )
           ) as funcionarios_ativos,
           
@@ -475,8 +465,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: "FÓRMULA DAX + FILTROS BI: Contratados até data - Demitidos - Transferidos (apenas Opus Consultoria)",
-            status: "🎯 FÓRMULA DAX EXATA + FILTROS DA IMAGEM BI APLICADOS",
+            funcionarios_formula: "FÓRMULA DAX SIMPLIFICADA: Total admitidos acumulados - demitidos - transferidos",
+            status: "🎯 IMPLEMENTAÇÃO SIMPLIFICADA DA FÓRMULA DAX (sem JOINs)",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
             debug_info: `Funcionários: ${count}, Diagnóstico sitafa: ${result.com_sitafa_1 || 0}`
           },
