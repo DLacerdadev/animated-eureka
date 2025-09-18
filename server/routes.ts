@@ -331,23 +331,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND caudem <> 0 AND caudem <> 6
           ) as demissoes_periodo,
           
-          -- 🎯 FUNCIONÁRIOS ATIVOS NA DATA (ABORDAGEM CORRETA!)
-          -- Funcionários admitidos até a data e que NÃO foram demitidos/transferidos até a data
+          -- 🎯 FUNCIONÁRIOS ATIVOS COM LÓGICA HÍBRIDA COMPLETA
+          -- ≤2024: tipcol=1 + sitafa=1, ≥2025: tipcol IN (1,3,5) + sem sitafa
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} 
-           AND tipcol = 1
-           AND sitafa = 1  -- Status ativo
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}  -- Híbrido: incluir estagiários/temporários para 2025
+           ${ano <= 2024 ? 'AND sitafa = 1' : '-- Períodos ≥2025: SEM filtro sitafa'}
            AND datadm <= '${endOfPeriod}'  -- Admitidos até a data
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)  -- NÃO demitidos até a data
           ) as funcionarios_ativos,
           
-          -- 🎯 DIAGNÓSTICOS: Funcionários admitidos até a data
+          -- 🎯 DIAGNÓSTICOS: Total admitidos (lógica híbrida completa)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
+           WHERE numemp = ${empresa}
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}
+           ${ano <= 2024 ? 'AND sitafa = 1' : '-- ≥2025: sem sitafa'}
            AND datadm <= '${endOfPeriod}'
-          ) as total_admitidos_com_sitafa,
+          ) as total_admitidos_hibrido,
           
           -- Funcionários demitidos até a data  
           (SELECT COUNT(DISTINCT numcad) 
@@ -357,13 +359,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND datafa IS NOT NULL AND YEAR(datafa) > 1900
           ) as total_demitidos_ate_data,
           
-          -- Funcionários ativos SEM sitafa (para comparação)
+          -- Diagnóstico: Funcionários ativos apenas tipcol=1 (para comparação)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1
            AND datadm <= '${endOfPeriod}'
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
-          ) as funcionarios_ativos_sem_sitafa,
+          ) as funcionarios_apenas_tipcol_1,
+          
+          -- Diagnóstico: Quantos são tipcol IN (3,5) para 2025
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol IN (3,5)
+           AND datadm <= '${endOfPeriod}'
+           AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
+          ) as funcionarios_tipcol_3_5,
           
           -- Diagnóstico sitafa (para comparação)
           (SELECT COUNT(DISTINCT numcad) 
@@ -449,12 +459,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = Array.isArray(data) && data.length > 0 ? data[0] : { funcionarios_ativos: 0, contratacoes_periodo: 0, demissoes_periodo: 0 };
       const count = result.funcionarios_ativos || 0;
       
-      // 🎯 DIAGNÓSTICOS: FUNCIONÁRIOS ATIVOS NA DATA
-      console.log(`🔍 DIAGNÓSTICOS FUNCIONÁRIOS ATIVOS (${mes}/${ano}):`);
-      console.log(`✅ Funcionários ativos (com sitafa=1): ${count}`);
-      console.log(`📈 Total admitidos com sitafa=1 até ${endOfPeriod}: ${result.total_admitidos_com_sitafa}`);
-      console.log(`📉 Total demitidos até ${endOfPeriod}: ${result.total_demitidos_ate_data}`);
-      console.log(`📊 Funcionários ativos SEM sitafa: ${result.funcionarios_ativos_sem_sitafa}`);
+      // 🎯 DIAGNÓSTICOS: LÓGICA HÍBRIDA COMPLETA
+      console.log(`🔍 DIAGNÓSTICOS LÓGICA HÍBRIDA COMPLETA (${mes}/${ano}):`);
+      console.log(`⚙️ Ano ${ano}: ${ano <= 2024 ? 'tipcol=1 + sitafa=1' : 'tipcol IN (1,3,5) + sem sitafa'}`);
+      console.log(`✅ Funcionários ativos (lógica híbrida): ${count}`);
+      console.log(`📊 Funcionários apenas tipcol=1: ${result.funcionarios_apenas_tipcol_1}`);
+      console.log(`👥 Funcionários tipcol IN (3,5): ${result.funcionarios_tipcol_3_5} (estagiários/temporários)`);
       console.log(`🎯 BI Esperado: ${mes === 8 ? '434' : mes === 9 ? '441' : 'N/A'}`);
       console.log(`🔄 Diferença para o alvo: ${mes === 8 ? (count - 434) : mes === 9 ? (count - 441) : 'N/A'}`);
 
@@ -465,10 +475,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           contratacoes_periodo: result.contratacoes_periodo || 0,
           demissoes_periodo: result.demissoes_periodo || 0,
           diagnosticos: {
-            funcionarios_ativos_com_sitafa: count,
-            total_admitidos_com_sitafa: result.total_admitidos_com_sitafa || 0,
-            total_demitidos_ate_data: result.total_demitidos_ate_data || 0,
-            funcionarios_ativos_sem_sitafa: result.funcionarios_ativos_sem_sitafa || 0,
+            funcionarios_ativos_hibrido: count,
+            total_admitidos_hibrido: result.total_admitidos_hibrido || 0,
+            funcionarios_apenas_tipcol_1: result.funcionarios_apenas_tipcol_1 || 0,
+            funcionarios_tipcol_3_5: result.funcionarios_tipcol_3_5 || 0,
+            logica_aplicada: ano <= 2024 ? 'tipcol=1+sitafa=1' : 'tipcol(1,3,5)+sem_sitafa',
             com_sitafa_1: result.com_sitafa_1 || 0
           },
           fonte: "R034FUN (Fórmulas DAX exatas do usuário)",
@@ -477,8 +488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: "FUNCIONÁRIOS ATIVOS NA DATA: Admitidos até data + sitafa=1 + NÃO demitidos até data",
-            status: "🎯 ABORDAGEM CORRETA: Ativos na data específica (não subtrativa)",
+            funcionarios_formula: `LÓGICA HÍBRIDA COMPLETA: ${ano <= 2024 ? 'tipcol=1+sitafa=1 para ≤2024' : 'tipcol(1,3,5)+sem_sitafa para ≥2025'} + ativos na data`,
+            status: "🎯 LÓGICA HÍBRIDA COMPLETA: sitafa + tipcol baseado no ano",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
             debug_info: `Funcionários: ${count}, Diagnóstico sitafa: ${result.com_sitafa_1 || 0}`
           },
