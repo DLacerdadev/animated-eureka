@@ -204,49 +204,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Primeiro: investigar estrutura completa da tabela r070nau
-      console.log('🔍 Investigando todas as colunas da tabela r070nau...');
+      // Descobrir tabelas corretas de RH com colunas de admissão/demissão
+      console.log('🔍 Procurando tabelas de RH com colunas de admissão/demissão...');
       
-      const allColumnsQuery = `
-        SELECT COLUMN_NAME, DATA_TYPE 
+      const hrTablesQuery = `
+        SELECT DISTINCT TABLE_NAME, COLUMN_NAME, DATA_TYPE
         FROM [${MSSQL_DB}].INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='r070nau' 
-        ORDER BY COLUMN_NAME
+        WHERE TABLE_SCHEMA='dbo' 
+        AND (
+          COLUMN_NAME IN ('datadm','dataadm','dtadmis','admissao','datafa','datdem','dtdemis','demissao','sitafa','situacao','numcad','numemp')
+          OR COLUMN_NAME LIKE '%adm%' 
+          OR COLUMN_NAME LIKE '%demi%' 
+          OR COLUMN_NAME LIKE '%resc%'
+          OR COLUMN_NAME LIKE '%func%'
+        )
+        ORDER BY TABLE_NAME, COLUMN_NAME
       `;
       
-      console.log('🔍 Executando query de todas as colunas...');
-      const columnsResponse = await fetch(`${SENIOR_API_URL}/query`, {
+      console.log('🔍 Executando busca por tabelas de RH...');
+      const hrTablesResponse = await fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": SENIOR_API_KEY!,
         },
-        body: JSON.stringify({ sqlText: allColumnsQuery }),
+        body: JSON.stringify({ sqlText: hrTablesQuery }),
       });
 
-      if (!columnsResponse.ok) {
-        const errorText = await columnsResponse.text();
-        console.error('❌ Erro ao consultar colunas:', columnsResponse.status, columnsResponse.statusText, errorText);
-        return res.status(columnsResponse.status).json({ 
+      if (!hrTablesResponse.ok) {
+        const errorText = await hrTablesResponse.text();
+        console.error('❌ Erro ao buscar tabelas de RH:', hrTablesResponse.status, hrTablesResponse.statusText, errorText);
+        return res.status(hrTablesResponse.status).json({ 
           success: false, 
-          error: `Columns query error: ${columnsResponse.status} - ${errorText}` 
+          error: `HR tables query error: ${hrTablesResponse.status} - ${errorText}` 
         });
       }
       
-      const allColumns = await columnsResponse.json();
-      console.log('📊 Todas as colunas da r070nau:', allColumns);
+      const hrTables = await hrTablesResponse.json();
+      console.log('📊 Tabelas de RH encontradas:', hrTables);
       
-      // Retorna informações sobre as colunas para análise
+      // Agrupar por tabela para melhor visualização
+      const tableGroups = hrTables.reduce((acc: any, item: any) => {
+        if (!acc[item.TABLE_NAME]) {
+          acc[item.TABLE_NAME] = [];
+        }
+        acc[item.TABLE_NAME].push({
+          column: item.COLUMN_NAME,
+          type: item.DATA_TYPE
+        });
+        return acc;
+      }, {});
+      
+      console.log('📋 Tabelas agrupadas:', tableGroups);
+      
+      // Retorna informações das tabelas de RH encontradas
       return res.json({
         success: true,
         investigation: {
-          table: "r070nau",
-          total_columns: allColumns.length,
-          all_columns: allColumns,
-          message: "Estrutura completa da tabela r070nau - identificar colunas para status de funcionário"
+          hr_tables_found: Object.keys(tableGroups).length,
+          tables: tableGroups,
+          message: "Tabelas de RH descobertas - identificar r034fun/r035fun ou similares"
         },
         timestamp: new Date().toISOString(),
-        mode: "column-investigation"
+        mode: "hr-table-discovery"
       });
     } catch (error) {
       console.error('ERROR /api/senior/turnover-chart:', error);
