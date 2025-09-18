@@ -204,119 +204,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Tenta consulta simplificada primeiro para testar conectividade
-      console.log('🔍 Testando conectividade com API Senior...');
+      // Primeiro: encontrar o código da Opus Consultoria Ltda na tabela de empresas
+      console.log('🔍 Procurando código da Opus Consultoria Ltda...');
       
-      // Query simplificada para testar se API está funcionando
-      const testQuery = `SELECT GETDATE() as data_atual, COUNT(*) as total FROM [${MSSQL_DB}].dbo.r070nau WHERE nome_emp = 'Opus Consultoria Ltda'`;
+      const companyQuery = `
+        SELECT numemp, nomemp 
+        FROM [${MSSQL_DB}].dbo.r030emp 
+        WHERE nomemp LIKE 'Opus Consultoria Ltda%'
+      `;
       
-      console.log('🔍 Executando query de teste:', testQuery);
-      const testResponse = await fetch(`${SENIOR_API_URL}/query`, {
+      console.log('🔍 Executando busca por empresa:', companyQuery);
+      const companyResponse = await fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": SENIOR_API_KEY!,
         },
-        body: JSON.stringify({ sqlText: testQuery }),
+        body: JSON.stringify({ sqlText: companyQuery }),
       });
 
-      if (!testResponse.ok) {
-        const errorText = await testResponse.text();
-        console.error('❌ Erro na API Senior (teste):', testResponse.status, testResponse.statusText, errorText);
-        
-        // Fallback para dados simulados quando API falha
-        const fallbackData = {
-          mes: new Date().getMonth() + 1,
-          ano: new Date().getFullYear(),
-          contratacoes: 4,
-          demissoes: 2,
-          funcionarios_ativos: 152,
-          taxa_turnover: 1.97
-        };
-        
-        return res.json({ 
-          success: true, 
-          data: fallbackData,
-          timestamp: new Date().toISOString(),
-          mode: "fallback-api-error",
-          error_details: `API Senior error: ${testResponse.status}`
+      if (!companyResponse.ok) {
+        const errorText = await companyResponse.text();
+        console.error('❌ Erro ao buscar empresa:', companyResponse.status, companyResponse.statusText, errorText);
+        return res.status(companyResponse.status).json({ 
+          success: false, 
+          error: `Company lookup error: ${companyResponse.status} - ${errorText}` 
         });
       }
+      
+      const companyData = await companyResponse.json();
+      console.log('📊 Dados da empresa encontrados:', companyData);
+      
+      if (!companyData || companyData.length === 0) {
+        console.error('❌ Opus Consultoria Ltda não encontrada na tabela r030emp');
+        return res.status(404).json({ 
+          success: false, 
+          error: "Opus Consultoria Ltda não encontrada na base de dados" 
+        });
+      }
+      
+      const opusCode = companyData[0].numemp;
+      console.log('✅ Código da Opus encontrado:', opusCode);
 
-      // Se teste passou, executa query completa
-      const query = `
+      // Agora executa a query de turnover usando o código correto (craemp)
+      const turnoverQuery = `
         SELECT 
           MONTH(GETDATE()) as mes,
           YEAR(GETDATE()) as ano,
-          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r070nau 
-           WHERE YEAR(datadm) = YEAR(GETDATE()) AND MONTH(datadm) = MONTH(GETDATE()) 
-           AND nome_emp = 'Opus Consultoria Ltda') as contratacoes,
-          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r070nau 
-           WHERE YEAR(datafa) = YEAR(GETDATE()) AND MONTH(datafa) = MONTH(GETDATE()) 
-           AND nome_emp = 'Opus Consultoria Ltda') as demissoes,
-          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r070nau 
-           WHERE sitafa = 1 AND nome_emp = 'Opus Consultoria Ltda') as funcionarios_ativos
+          (
+            SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.r070nau 
+            WHERE YEAR(datadm) = YEAR(GETDATE()) 
+              AND MONTH(datadm) = MONTH(GETDATE())
+              AND craemp = ${opusCode}
+          ) as contratacoes,
+          (
+            SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.r070nau 
+            WHERE YEAR(datafa) = YEAR(GETDATE()) 
+              AND MONTH(datafa) = MONTH(GETDATE())
+              AND craemp = ${opusCode}
+          ) as demissoes,
+          (
+            SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.r070nau 
+            WHERE sitafa = 1 
+              AND craemp = ${opusCode}
+          ) as funcionarios_ativos
       `;
 
-      console.log('🔍 Executando query completa de turnover...');
-      const response = await fetch(`${SENIOR_API_URL}/query`, {
+      console.log('🔍 Executando query de turnover com código correto...');
+      const turnoverResponse = await fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": SENIOR_API_KEY!,
         },
-        body: JSON.stringify({ sqlText: query }),
+        body: JSON.stringify({ sqlText: turnoverQuery }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📊 Resposta da API Senior:', data);
-        
-        const rawData = data[0] || { 
-          mes: new Date().getMonth() + 1,
-          ano: new Date().getFullYear(),
-          contratacoes: 0, 
-          demissoes: 0, 
-          funcionarios_ativos: 1 
-        };
-        
-        // Aplicar fórmula: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
-        const taxaTurnover = ((rawData.contratacoes + rawData.demissoes) / 2) / rawData.funcionarios_ativos * 100;
-        
-        const turnoverData = {
-          ...rawData,
-          taxa_turnover: Number(taxaTurnover.toFixed(2))
-        };
-
-        console.log('✅ Dados reais de turnover calculados:', turnoverData);
-        res.json({ 
-          success: true, 
-          data: turnoverData,
-          timestamp: new Date().toISOString(),
-          mode: "production-real"
-        });
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Erro na query de turnover:', response.status, response.statusText, errorText);
-        
-        // Fallback para dados simulados quando query específica falha
-        const fallbackData = {
-          mes: new Date().getMonth() + 1,
-          ano: new Date().getFullYear(),
-          contratacoes: 4,
-          demissoes: 2,
-          funcionarios_ativos: 152,
-          taxa_turnover: 1.97
-        };
-        
-        res.json({ 
-          success: true, 
-          data: fallbackData,
-          timestamp: new Date().toISOString(),
-          mode: "fallback-query-error",
-          error_details: `Query error: ${response.status}`
+      if (!turnoverResponse.ok) {
+        const errorText = await turnoverResponse.text();
+        console.error('❌ Erro na query de turnover:', turnoverResponse.status, turnoverResponse.statusText, errorText);
+        return res.status(turnoverResponse.status).json({ 
+          success: false, 
+          error: `Turnover query error: ${turnoverResponse.status} - ${errorText}` 
         });
       }
+
+      const turnoverData = await turnoverResponse.json();
+      console.log('📊 Dados brutos de turnover:', turnoverData);
+      
+      const rawData = turnoverData[0] || { 
+        mes: new Date().getMonth() + 1,
+        ano: new Date().getFullYear(),
+        contratacoes: 0, 
+        demissoes: 0, 
+        funcionarios_ativos: 1 
+      };
+      
+      // Aplicar fórmula DAX: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
+      const taxaTurnover = ((rawData.contratacoes + rawData.demissoes) / 2) / rawData.funcionarios_ativos * 100;
+      
+      const finalTurnoverData = {
+        ...rawData,
+        taxa_turnover: Number(taxaTurnover.toFixed(2))
+      };
+
+      console.log('✅ Dados finais de turnover calculados:', finalTurnoverData);
+      res.json({ 
+        success: true, 
+        data: finalTurnoverData,
+        timestamp: new Date().toISOString(),
+        mode: "production-real",
+        company_code: opusCode
+      });
     } catch (error) {
       console.error('ERROR /api/senior/turnover-chart:', error);
       res.status(500).json({ 
