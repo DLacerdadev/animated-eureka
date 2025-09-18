@@ -166,9 +166,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Middleware simples de API Key (seguindo padrão Hialinx)
+  // Middleware de autenticação seguro - não expõe SENIOR_API_KEY aos clientes
   function requireApiKey(req: any, res: any, next: any) {
-    const apiKey = req.headers['x-api-key'];
-    if (!apiKey || apiKey !== SENIOR_API_KEY) {
+    const clientKey = req.headers['x-api-key'];
+    const validClientKey = 'OpusApiKey_2025!'; // Chave específica para clientes (diferente da SENIOR_API_KEY)
+    
+    if (!clientKey || clientKey !== validClientKey) {
       return res.status(401).json({ error: 'unauthorized' });
     }
     next();
@@ -302,21 +305,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📅 Calculando para período: ${mes}/${ano} (fim do período: ${endOfPeriod})`);
 
-      // 🎯 FÓRMULA EXATA BASEADA NO DOCUMENTO POWER BI
-      // Descoberta: caudem = 0 representa transferências, não demissões reais!
-      // Baseado no documento: tipo_func = 1 + funcionários ativos (incluindo transferidos)
+      // 🎯 FÓRMULAS DAX EXATAS FORNECIDAS PELO USUÁRIO
+      // Contratações: Data_ADM_original (datadm) + USERELATIONSHIP dCalendario
+      // Demissões: status_demiss="Demitido" && cod_demiss<>6 + Data_Af (datafa)
+      // Funcionários ativos: admitidos até período - demitidos reais até período
+      
+      const startOfPeriod = `${ano}-${mes.toString().padStart(2, '0')}-01`;
       
       const activeEmployeesQuery = `
-        SELECT COUNT(*) as funcionarios_ativos
-        FROM [${MSSQL_DB}].dbo.R034FUN
-        WHERE numemp = ${empresa}
-        AND tipcol = 1
-        AND datadm <= '${endOfPeriod}'
-        AND (
-          datafa IS NULL 
-          OR YEAR(datafa) = 1900 
-          OR caudem = 0
-        )
+        SELECT 
+          -- Contratações no período (fórmula DAX exata)
+          (SELECT COUNT(*) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1 
+           AND datadm >= '${startOfPeriod}' AND datadm <= '${endOfPeriod}'
+          ) as contratacoes_periodo,
+          
+          -- Demissões no período (fórmula DAX: status_demiss="Demitido" && cod_demiss<>6)
+          (SELECT COUNT(*) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1 
+           AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
+           AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
+           AND caudem <> 0 AND caudem <> 6
+          ) as demissoes_periodo,
+          
+          -- Funcionários ativos: fórmula DAX EXATA (Admitidos - Demitidos reais)
+          ((SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.R034FUN 
+            WHERE numemp = ${empresa} AND tipcol = 1 AND datadm <= '${endOfPeriod}'
+           ) - 
+           (SELECT COUNT(*) 
+            FROM [${MSSQL_DB}].dbo.R034FUN 
+            WHERE numemp = ${empresa} AND tipcol = 1 
+            AND datafa <= '${endOfPeriod}' AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
+            AND caudem NOT IN (0, 6)
+           )) as funcionarios_ativos
       `;
 
       const response = await fetch(`${SENIOR_API_URL}/query`, {
@@ -369,22 +393,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = await response.json();
-      console.log('👥 Dados funcionários ativos (com filtros BI):', data);
+      console.log('👥 Dados com fórmulas DAX:', data);
       
-      const count = data[0]?.funcionarios_ativos || 0;
+      const result = Array.isArray(data) && data.length > 0 ? data[0] : { funcionarios_ativos: 0, contratacoes_periodo: 0, demissoes_periodo: 0 };
+      const count = result.funcionarios_ativos || 0;
 
       return res.json({
         success: true,
         data: {
           funcionarios_ativos: count,
-          fonte: "R034FUN (Fórmula DAX otimizada - baseada no BI)",
+          contratacoes_periodo: result.contratacoes_periodo || 0,
+          demissoes_periodo: result.demissoes_periodo || 0,
+          fonte: "R034FUN (Fórmulas DAX exatas do usuário)",
           empresa: empresa,
           detalhes: {
             periodo: `${mes}/${ano}`,
-            filtros: "Tipo_func=1 (tipcol=1) + Ativos/Transferidos (caudem=0), Opus Consultoria Ltda",
-            descoberta: "caudem=0 = transferências (não demissões reais)",
-            status: "FÓRMULA BASEADA NO DOCUMENTO BI FORNECIDO ✅",
-            nota: "Implementado conforme lógica do Power BI - funcionários ativos incluem transferidos"
+            contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
+            demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
+            funcionarios_formula: "Admitidos até período - Demitidos reais até período",
+            status: "FÓRMULAS DAX IMPLEMENTADAS ✅",
+            targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A"
           },
           timestamp: new Date().toISOString()
         }
