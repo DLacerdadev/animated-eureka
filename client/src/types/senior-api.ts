@@ -67,3 +67,19 @@ export interface ConnectionStatus {
   lastSync?: string;
   error?: string;
 }
+
+// Dados específicos para gráfico de turnover da Opus Consultoria Ltda
+export interface TurnoverData {
+  mes: number;
+  ano: number;
+  contratacoes: number;
+  demissoes: number;
+  funcionarios_ativos: number;
+  taxa_turnover: number; // Percentual calculado: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
+}
+
+// Dados demográficos básicos 
+export interface DemographicData {
+  sexo: 'M' | 'F';
+  count: number;
+}
