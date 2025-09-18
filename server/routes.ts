@@ -287,6 +287,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint para contar funcionários ativos (baseado na consulta BI fornecida)
+  app.get("/api/senior/active-employees", requireApiKey, async (req, res) => {
+    try {
+      const empresa = parseInt(req.query.empresa as string) || 1; // Opus Consultoria
+      
+      console.log(`👥 Buscando funcionários ativos da Opus Consultoria (empresa ${empresa})`);
+      
+      // Query baseada na consulta BI fornecida - com campos corretos da R034FUN
+      const activeEmployeesQuery = `
+        SELECT COUNT(*) as funcionarios_ativos
+        FROM [${MSSQL_DB}].dbo.R034FUN
+        WHERE numemp = ${empresa}
+        AND (datafa IS NULL OR YEAR(datafa) = 1900)
+        AND sitafa = 1
+      `;
+
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY!,
+        },
+        body: JSON.stringify({ sqlText: activeEmployeesQuery }),
+      });
+
+      if (!response.ok) {
+        // Fallback para r350adm se R034FUN não funcionar
+        console.log('⚠️ Tentando fallback com r350adm...');
+        
+        const fallbackQuery = `
+          SELECT COUNT(*) as funcionarios_ativos
+          FROM [${MSSQL_DB}].dbo.r350adm
+          WHERE numemp = ${empresa}
+          AND (datdem IS NULL OR YEAR(datdem) < 2020)
+          AND datadm IS NOT NULL
+        `;
+        
+        const fallbackResponse = await fetch(`${SENIOR_API_URL}/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SENIOR_API_KEY!,
+          },
+          body: JSON.stringify({ sqlText: fallbackQuery }),
+        });
+
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          const count = fallbackData[0]?.funcionarios_ativos || 0;
+          
+          return res.json({
+            success: true,
+            data: {
+              funcionarios_ativos: count,
+              fonte: "r350adm (fallback)",
+              empresa: empresa,
+              timestamp: new Date().toISOString()
+            }
+          });
+        } else {
+          throw new Error(`Fallback query failed: ${fallbackResponse.status}`);
+        }
+      }
+
+      const data = await response.json();
+      console.log('👥 Dados funcionários ativos (R034FUN):', data);
+      
+      const count = data[0]?.funcionarios_ativos || 0;
+
+      return res.json({
+        success: true,
+        data: {
+          funcionarios_ativos: count,
+          fonte: "R034FUN (Catálogo RH Oficial - baseado consulta BI)",
+          empresa: empresa,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar funcionários ativos:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao buscar funcionários ativos'
+      });
+    }
+  });
+
   // Endpoint de turnover usando tabelas corretas do catálogo RH Senior
   app.get("/api/senior/turnover-chart", requireApiKey, async (req, res) => {
     try {

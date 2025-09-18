@@ -1,0 +1,38 @@
+let
+    Fonte = Sql.Database("hc231130opui3116.cloudhialinx.com.br,12404", "opus_hcm_221123", [Query="select #(lf)concat(R034FUN.numemp,R034FUN.TIPCOL,R034FUN.numcad,R034FUN.codccu,numcpf ) pk,#(lf)R034FUN.numemp Empresa,#(lf)R034FUN.empfil Emp_orig_transf,#(lf)razsoc nome_emp,#(lf)nomfun Funcionario,#(lf)tipsex sexo,#(lf)R034FUN.codccu Centro_de_Custo_senior, #(lf)R018CCU.nomccu desc_cc_senior,#(lf)usu_ccusap CC_Protheus,#(lf)numcpf CPF,#(lf)R034FUN.numcad matricula,#(lf)format(R034FUN.valsal,'#,###,###.##') salario,#(lf)Format(R034FUN.datadm,'dd/MM/yyyy') Data_ADM,#(lf)Format(R034FUN.datfil,'dd/MM/yyyy') Data_transf_fil,#(lf)Format(datnas,'dd/MM/yyyy') dt_nas,#(lf)datediff(year,Format(datnas,'dd/MM/yyyy'),Format(GETDATE(),'dd/MM/yyyy')) idade,#(lf)Format(datafa,'dd/MM/yyyy') Data_Af,#(lf)R034FUN.TIPCOL tipo_func,#(lf)case when R034FUN.cateso = '106' then 'Temporário' else 'CLT' end as tipo_contrato,#(lf)sitafa status_func,#(lf)--case when r042cau.caudem = 6 or r042cau.caudem = 7 or r042cau.caudem =24 or r042cau.caudem = 25 then 'Transferido' else R010.dessit end  status_demiss,#(lf)R010.dessit  status_demiss,#(lf)r042cau.caudem cod_demiss,#(lf)r042cau.desdem causa_demiss,#(lf)R034FUN.PosTra Cod_Posto_trab, #(lf)R17.despos Posto_trab, #(lf)R034FUN.estpos Est_pos, #(lf)R034FUN.numloc Num_local, #(lf)R16.nomloc Nome_Local,#(lf)CPL.dddtel,#(lf)CPL.numtel,#(lf)CPL.nmddd2,#(lf)CPL.nmtel2,#(lf)CPL.emapar +';'+CPL.emacom as email#(lf)#(lf)from R034FUN R034FUN #(lf)#(lf)inner join R018CCU R018CCU on R018CCU.numemp = R034FUN.numemp and R018CCU.codccu= R034FUN.codccu #(lf)left join R042CAU R042CAU on R042CAU.caudem = R034FUN.caudem#(lf)left join r010sit R010 on R010.codsit = R034FUN.sitafa#(lf)left join r017pos R17 on R17.postra = R034FUN.postra and R17.estpos = R034FUN.estpos#(lf)left join r016orn R16 on R16.numloc = R034FUN.numloc#(lf)left join r030emp r030emp on r030emp.numemp = R034FUN.numemp#(lf)left join r030fil fil on fil.numemp = R034FUN.numemp#(lf)left join R034CPL CPL on CPL.numemp = R034FUN.numemp and CPL.tipcol = R034FUN.tipcol and  CPL.numcad = R034FUN.numcad#(lf)#(lf)#(lf)where  (R034FUN.numemp='1' or R034FUN.numemp>='6') #(lf)#(lf)group by R034FUN.numemp,R034FUN.empfil,#(lf)razsoc,nomfun,#(lf)tipsex,R034FUN.codccu, #(lf)R018CCU.nomccu,usu_ccusap,#(lf)numcpf,R034FUN.numcad,R034FUN.valsal,#(lf)R034FUN.datadm,R034FUN.datfil,datnas,#(lf)datnas,datafa,#(lf)R034FUN.TIPCOL ,#(lf)R034FUN.cateso,#(lf)sitafa ,#(lf)R010.dessit,#(lf)r042cau.caudem ,#(lf)r042cau.desdem ,#(lf)R034FUN.PosTra , #(lf)R17.despos , #(lf)R034FUN.estpos , #(lf)R034FUN.numloc , #(lf)R16.nomloc, CPL.dddtel,#(lf)CPL.numtel,#(lf)CPL.nmddd2,#(lf)CPL.nmtel2,#(lf)CPL.emapar,CPL.emacom#(lf)#(lf)order by datadm desc", CommandTimeout=#duration(0, 4, 17, 0)]),
+    #"Tipo Alterado5" = Table.TransformColumnTypes(Fonte,{{"dddtel", type text}, {"nmddd2", type text}}),
+    #"Colunas Mescladas" = Table.CombineColumns(#"Tipo Alterado5",{"dddtel", "numtel"},Combiner.CombineTextByDelimiter("-", QuoteStyle.None),"Telefone 1"),
+    #"Colunas Mescladas1" = Table.CombineColumns(#"Colunas Mescladas",{"nmddd2", "nmtel2"},Combiner.CombineTextByDelimiter("-", QuoteStyle.None),"Telefone 2"),
+    #"Valor Substituído2" = Table.ReplaceValue(#"Colunas Mescladas1","0-","",Replacer.ReplaceText,{"Telefone 2", "email"}),
+    #"Valor Substituído3" = Table.ReplaceValue(#"Valor Substituído2","0-","",Replacer.ReplaceText,{"Telefone 1"}),
+    #"Valor Substituído" = Table.ReplaceValue(#"Valor Substituído3","F","Feminino",Replacer.ReplaceText,{"sexo"}),
+    #"Valor Substituído1" = Table.ReplaceValue(#"Valor Substituído","M","Masculino",Replacer.ReplaceText,{"sexo"}),
+    #"Colocar Cada Palavra Em Maiúscula" = Table.TransformColumns(#"Valor Substituído1",{{"nome_emp", Text.Proper, type text}, {"Funcionario", Text.Proper, type text}, {"causa_demiss", Text.Proper, type text}, {"Posto_trab", Text.Proper, type text}, {"Nome_Local", Text.Proper, type text}}),
+    #"Duplicatas Removidas2" = Table.Distinct(#"Colocar Cada Palavra Em Maiúscula"),
+    #"Tipo Alterado" = Table.TransformColumnTypes(#"Duplicatas Removidas2",{{"Data_Af", type date}}),
+    #"Tipo Alterado1" = Table.TransformColumnTypes(#"Tipo Alterado",{{"Data_ADM", type date}}),
+    #"Personalização Adicionada" = Table.AddColumn(#"Tipo Alterado1", "Tempo empresa meses", each let 
+DataInicial = [Data_ADM],
+DataFinal = [Data_Af],
+DataFinalAtivos = Date.From(DateTime.LocalNow()),
+Dias = if Date.Day(DataFinal) >= Date.Day(DataInicial) then 0 else 1,
+vResultado = if [status_demiss]= "Demitido" then (Date.Year(DataFinal) - Date.Year(DataInicial))*12 + Date.Month(DataFinal) - Date.Month(DataInicial) - Dias else (Date.Year(DataFinalAtivos) - Date.Year(DataInicial))*12 + Date.Month(DataFinalAtivos) - Date.Month(DataInicial) - Dias
+in 
+vResultado),
+    #"Tipo Alterado2" = Table.TransformColumnTypes(#"Personalização Adicionada",{{"Tempo empresa meses", Int64.Type}, {"salario", type number}}),
+    #"Colocar Cada Palavra Em Maiúscula1" = Table.TransformColumns(#"Tipo Alterado2",{{"nome_emp", Text.Proper, type text}}),
+    #"Linhas Filtradas" = Table.SelectRows(#"Colocar Cada Palavra Em Maiúscula1", each ([tipo_func] = 1)),
+    #"Colunas Renomeadas" = Table.RenameColumns(#"Linhas Filtradas",{{"desc_cc_senior", "Desc CC Senior"}}),
+    #"Tipo Alterado3" = Table.TransformColumnTypes(#"Colunas Renomeadas",{{"Data_transf_fil", type date}}),
+    #"Personalização Adicionada1" = Table.AddColumn(#"Tipo Alterado3", "Transferido", each 
+//if [Empresa] = [Emp_orig_transf] then "Não" else if [Data_transf_fil] > [Data_ADM] then "Sim" else "Não")
+if [Empresa] = [Emp_orig_transf] then "Não" else if [Data_transf_fil] > [Data_ADM] then "Sim" else "Não"),
+    #"Coluna Condicional Adicionada" = Table.AddColumn(#"Personalização Adicionada1", "Data_ADM_1", each if [Data_transf_fil] > [Data_ADM]  then [Data_transf_fil] else [Data_ADM]),
+    #"Colunas Reordenadas" = Table.ReorderColumns(#"Coluna Condicional Adicionada",{"pk", "Empresa", "nome_emp", "Funcionario", "sexo", "Centro_de_Custo_senior", "Desc CC Senior", "CC_Protheus", "CPF", "matricula", "salario", "Data_ADM", "Data_ADM_1", "Data_transf_fil", "dt_nas", "idade", "Data_Af", "tipo_func", "status_func", "status_demiss", "cod_demiss", "causa_demiss", "Cod_Posto_trab", "Posto_trab", "Est_pos", "Num_local", "Nome_Local", "Tempo empresa meses"}),
+    #"Tipo Alterado4" = Table.TransformColumnTypes(#"Colunas Reordenadas",{{"Data_ADM_1", type date}, {"Transferido", type text}}),
+    #"Colunas Renomeadas2" = Table.RenameColumns(#"Tipo Alterado4",{{"Data_ADM", "Data_ADM_original"}}),
+    #"Colunas Renomeadas1" = Table.RenameColumns(#"Colunas Renomeadas2",{{"Data_ADM_1", "Data_ADM"}}),
+    #"Personalização Adicionada3" = Table.AddColumn(#"Colunas Renomeadas1", "Dias Afastamento", each if Date.Year([Data_Af]) = 1900 then "Ativo" else if Duration.Days([Data_Af] - [Data_ADM_original])<= 30 then "30 dias" else if Duration.Days([Data_Af] - [Data_ADM_original])<=60 then "60 dias" else if Duration.Days([Data_Af] - [Data_ADM_original])<= 90 then "90 dias" else "maior que 90"),
+    #"Personalização Adicionada2" = Table.AddColumn(#"Personalização Adicionada3", "Dias Desligado", each if Date.Year([Data_Af]) = 1900 then 0 else Duration.Days([Data_Af] - [Data_ADM_original]))
+in
+    #"Personalização Adicionada2"
