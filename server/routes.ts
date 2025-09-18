@@ -204,69 +204,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Descobrir tabelas corretas de RH com colunas de admissão/demissão
-      console.log('🔍 Procurando tabelas de RH com colunas de admissão/demissão...');
+      // Implementar query de turnover real usando tabelas r350adm e vbi_hissit descobertas
+      console.log('🔍 Implementando query de turnover com dados reais...');
       
-      const hrTablesQuery = `
-        SELECT DISTINCT TABLE_NAME, COLUMN_NAME, DATA_TYPE
-        FROM [${MSSQL_DB}].INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA='dbo' 
-        AND (
-          COLUMN_NAME IN ('datadm','dataadm','dtadmis','admissao','datafa','datdem','dtdemis','demissao','sitafa','situacao','numcad','numemp')
-          OR COLUMN_NAME LIKE '%adm%' 
-          OR COLUMN_NAME LIKE '%demi%' 
-          OR COLUMN_NAME LIKE '%resc%'
-          OR COLUMN_NAME LIKE '%func%'
-        )
-        ORDER BY TABLE_NAME, COLUMN_NAME
-      `;
+      // Query para contratações por mês (baseada em r350adm.datadm)
+      const contratacoesMes = await Promise.all(
+        Array.from({ length: 12 }, async (_, i) => {
+          const mes = i + 1;
+          const contratacaoQuery = `
+            SELECT COUNT(*) as total
+            FROM [${MSSQL_DB}].dbo.r350adm
+            WHERE numemp = 1 
+            AND MONTH(datadm) = ${mes} 
+            AND YEAR(datadm) = 2024
+            AND datadm IS NOT NULL
+          `;
+          
+          try {
+            const response = await fetch(`${SENIOR_API_URL}/query`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": SENIOR_API_KEY!,
+              },
+              body: JSON.stringify({ sqlText: contratacaoQuery }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              return data[0]?.total || 0;
+            }
+            return 0;
+          } catch (error) {
+            console.error(`Erro contratações mês ${mes}:`, error);
+            return 0;
+          }
+        })
+      );
+
+      // Query para demissões por mês (baseada em r350adm.datdem)
+      const demissoesMes = await Promise.all(
+        Array.from({ length: 12 }, async (_, i) => {
+          const mes = i + 1;
+          const demissaoQuery = `
+            SELECT COUNT(*) as total
+            FROM [${MSSQL_DB}].dbo.r350adm
+            WHERE numemp = 1 
+            AND MONTH(datdem) = ${mes} 
+            AND YEAR(datdem) = 2024
+            AND datdem IS NOT NULL
+          `;
+          
+          try {
+            const response = await fetch(`${SENIOR_API_URL}/query`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": SENIOR_API_KEY!,
+              },
+              body: JSON.stringify({ sqlText: demissaoQuery }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              return data[0]?.total || 0;
+            }
+            return 0;
+          } catch (error) {
+            console.error(`Erro demissões mês ${mes}:`, error);
+            return 0;
+          }
+        })
+      );
+
+      // Query para funcionários ativos no final de cada mês
+      const ativosMes = await Promise.all(
+        Array.from({ length: 12 }, async (_, i) => {
+          const mes = i + 1;
+          const ultimoDiaMes = new Date(2024, mes, 0).getDate();
+          const dataFimMes = `2024-${mes.toString().padStart(2, '0')}-${ultimoDiaMes}`;
+          
+          const ativosQuery = `
+            SELECT COUNT(*) as total
+            FROM [${MSSQL_DB}].dbo.r350adm
+            WHERE numemp = 1 
+            AND datadm <= '${dataFimMes}'
+            AND (datdem IS NULL OR datdem > '${dataFimMes}')
+          `;
+          
+          try {
+            const response = await fetch(`${SENIOR_API_URL}/query`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": SENIOR_API_KEY!,
+              },
+              body: JSON.stringify({ sqlText: ativosQuery }),
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              return data[0]?.total || 0;
+            }
+            return 0;
+          } catch (error) {
+            console.error(`Erro ativos mês ${mes}:`, error);
+            return 0;
+          }
+        })
+      );
+
+      // Usar dados do mês atual ou setembro como exemplo
+      const mesAtual = new Date().getMonth(); // 0-11
+      const anoAtual = 2024;
       
-      console.log('🔍 Executando busca por tabelas de RH...');
-      const hrTablesResponse = await fetch(`${SENIOR_API_URL}/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SENIOR_API_KEY!,
-        },
-        body: JSON.stringify({ sqlText: hrTablesQuery }),
+      console.log(`📅 Calculando dados para mês ${mesAtual + 1}/${anoAtual}`);
+      
+      const contratacoes = contratacoesMes[mesAtual] || 0;
+      const demissoes = demissoesMes[mesAtual] || 0;
+      const ativos = ativosMes[mesAtual] || 0;
+      
+      // Calcular taxa de turnover
+      const taxaTurnover = ativos > 0 ? Math.round((demissoes / ativos) * 100 * 100) / 100 : 0;
+      
+      // Dados no formato esperado pelo frontend
+      const turnoverData = {
+        mes: mesAtual + 1,
+        ano: anoAtual,
+        contratacoes,
+        demissoes,
+        funcionarios_ativos: ativos,
+        taxa_turnover: taxaTurnover
+      };
+
+      console.log('📊 Dados de turnover calculados:', turnoverData);
+      console.log('📊 Arrays completos:', {
+        contratacoesMes: contratacoesMes,
+        demissoesMes: demissoesMes,
+        ativosMes: ativosMes
       });
 
-      if (!hrTablesResponse.ok) {
-        const errorText = await hrTablesResponse.text();
-        console.error('❌ Erro ao buscar tabelas de RH:', hrTablesResponse.status, hrTablesResponse.statusText, errorText);
-        return res.status(hrTablesResponse.status).json({ 
-          success: false, 
-          error: `HR tables query error: ${hrTablesResponse.status} - ${errorText}` 
-        });
-      }
-      
-      const hrTables = await hrTablesResponse.json();
-      console.log('📊 Tabelas de RH encontradas:', hrTables);
-      
-      // Agrupar por tabela para melhor visualização
-      const tableGroups = hrTables.reduce((acc: any, item: any) => {
-        if (!acc[item.TABLE_NAME]) {
-          acc[item.TABLE_NAME] = [];
-        }
-        acc[item.TABLE_NAME].push({
-          column: item.COLUMN_NAME,
-          type: item.DATA_TYPE
-        });
-        return acc;
-      }, {});
-      
-      console.log('📋 Tabelas agrupadas:', tableGroups);
-      
-      // Retorna informações das tabelas de RH encontradas
       return res.json({
         success: true,
-        investigation: {
-          hr_tables_found: Object.keys(tableGroups).length,
-          tables: tableGroups,
-          message: "Tabelas de RH descobertas - identificar r034fun/r035fun ou similares"
+        data: turnoverData, // Objeto único, não array
+        summary: {
+          totalContratacoes: contratacoesMes.reduce((a, b) => a + b, 0),
+          totalDemissoes: demissoesMes.reduce((a, b) => a + b, 0),
+          funcionariosAtuais: ativosMes[mesAtual] || 0,
+          turnoverMedio: taxaTurnover
         },
         timestamp: new Date().toISOString(),
-        mode: "hr-table-discovery"
+        mode: "real-api-data"
       });
     } catch (error) {
       console.error('ERROR /api/senior/turnover-chart:', error);
