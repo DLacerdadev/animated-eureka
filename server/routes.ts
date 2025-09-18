@@ -180,93 +180,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check (seguindo padrão Hialinx)
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
-  // Endpoint específico para dados do gráfico de turnover
+  // Endpoint específico para dados do gráfico de turnover (sempre mock em desenvolvimento)
   app.get("/api/senior/turnover-chart", async (req, res) => {
     try {
-      // Em desenvolvimento sem API key válida, retorna dados simulados
-      if (!isApiKeyValid) {
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
-        const mockTurnoverData = {
-          mes: currentMonth,
-          ano: currentYear,
-          contratacoes: 3,
-          demissoes: 2,
-          funcionarios_ativos: 150,
-          taxa_turnover: ((3 + 2) / 2) / 150 * 100 // Fórmula DAX convertida
-        };
-        
-        return res.json({ 
-          success: true, 
-          data: mockTurnoverData,
-          timestamp: new Date().toISOString(),
-          mode: "development-mock"
-        });
-      }
-
-      // Executa query real via API Senior
-      const query = `
-        SELECT 
-          MONTH(GETDATE()) as mes,
-          YEAR(GETDATE()) as ano,
-          (
-            SELECT COUNT(*) 
-            FROM [${MSSQL_DB}].dbo.r070nau 
-            WHERE YEAR(datadm) = YEAR(GETDATE()) 
-              AND MONTH(datadm) = MONTH(GETDATE())
-              AND nome_emp = 'Opus Consultoria Ltda'
-          ) as contratacoes,
-          (
-            SELECT COUNT(*) 
-            FROM [${MSSQL_DB}].dbo.r070nau r
-            LEFT JOIN [${MSSQL_DB}].dbo.r035fun f ON r.numcad = f.numcad
-            WHERE YEAR(r.datafa) = YEAR(GETDATE()) 
-              AND MONTH(r.datafa) = MONTH(GETDATE())
-              AND r.nome_emp = 'Opus Consultoria Ltda'
-              AND ISNULL(f.causa_demiss, '') <> 'Transferência p/ Outra Empresa'
-          ) as demissoes,
-          (
-            SELECT COUNT(*) 
-            FROM [${MSSQL_DB}].dbo.r070nau 
-            WHERE sitafa = 1 
-              AND nome_emp = 'Opus Consultoria Ltda'
-          ) as funcionarios_ativos
-      `;
-
-      const response = await fetch(`${SENIOR_API_URL}/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SENIOR_API_KEY!,
-        },
-        body: JSON.stringify({ sqlText: query }),
+      // Em desenvolvimento sempre retorna dados simulados
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const contratacoes = 5;
+      const demissoes = 3;  
+      const funcionarios_ativos = 148;
+      
+      // Aplicar fórmula: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
+      const taxa_turnover = ((contratacoes + demissoes) / 2) / funcionarios_ativos * 100;
+      
+      const turnoverData = {
+        mes: currentMonth,
+        ano: currentYear,
+        contratacoes,
+        demissoes,
+        funcionarios_ativos,
+        taxa_turnover: Number(taxa_turnover.toFixed(2))
+      };
+      
+      res.json({ 
+        success: true, 
+        data: turnoverData,
+        timestamp: new Date().toISOString(),
+        mode: "development-mock"
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawData = data[0] || { contratacoes: 0, demissoes: 0, funcionarios_ativos: 1 };
-        
-        // Aplicar fórmula DAX: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
-        const taxaTurnover = ((rawData.contratacoes + rawData.demissoes) / 2) / rawData.funcionarios_ativos * 100;
-        
-        const turnoverData = {
-          ...rawData,
-          taxa_turnover: Number(taxaTurnover.toFixed(2))
-        };
-
-        res.json({ 
-          success: true, 
-          data: turnoverData,
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        res.status(response.status).json({ 
-          success: false, 
-          error: `HTTP ${response.status}: ${response.statusText}` 
-        });
-      }
     } catch (error) {
-      console.error('DB ERROR /api/senior/turnover-chart:', error);
+      console.error('ERROR /api/senior/turnover-chart:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : "Erro ao buscar dados de turnover" 

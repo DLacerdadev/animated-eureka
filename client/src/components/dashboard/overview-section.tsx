@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICards } from "@/components/dashboard/kpi-cards";
+import { TurnoverChart } from "@/components/dashboard/turnover-chart";
 import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -39,25 +40,7 @@ export function OverviewSection() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Turnover Chart */}
-        <Card data-testid="chart-turnover">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Turnover por Mês</CardTitle>
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <ChartLine className="h-16 w-16 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">Gráfico de Turnover</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Dados serão carregados via API Senior
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <TurnoverChart />
         
         {/* Demographics Chart */}
         <Card data-testid="chart-demographics">
