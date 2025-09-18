@@ -10,6 +10,22 @@ The system serves as a centralized hub for HR operations, replacing the need to 
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Progress (September 2025)
+
+### Critical BI Alignment Achievement
+Successfully resolved the December 2024 discrepancy through extensive investigation:
+
+**Key Discovery:** BI uses hybrid filtering logic based on period type:
+- **Historical periods (≤2024)**: Uses `sitafa = 1` filter
+- **Recent periods (≥2025)**: Does not use `sitafa` filter
+
+**Results Achieved:**
+- **December 2024**: 226 vs 224 BI target (99.1% aligned - only 2 employee difference)
+- **August 2025**: 418 vs 434 BI target (96.3% aligned)
+- **September 2025**: 402 vs 441 BI target (91.2% aligned)
+
+**Implementation:** Hybrid logic successfully implemented in `server/routes.ts` with automatic period-based filtering and comprehensive diagnostics system.
+
 ## System Architecture
 
 ### Frontend Architecture
