@@ -330,14 +330,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND caudem <> 0 AND caudem <> 6
           ) as demissoes_periodo,
           
-          -- Funcionários ativos no final do período (lógica condicional por ano)
-          (SELECT COUNT(*) 
+          -- Funcionários ativos únicos no final do período (DISTINCT para evitar duplicação)
+          (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} 
            AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'} -- 2024: tipcol=1, 2025+: IN(1,3,5)
            AND datadm <= '${endOfPeriod}'
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
-          ) as funcionarios_ativos
+          ) as funcionarios_ativos,
+          
+          -- Debug: Total de registros (sem DISTINCT) para comparação
+          (SELECT COUNT(*) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} 
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'} 
+           AND datadm <= '${endOfPeriod}'
+           AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
+          ) as total_registros_debug
       `;
 
       const response = await fetch(`${SENIOR_API_URL}/query`, {
@@ -401,15 +410,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           funcionarios_ativos: count,
           contratacoes_periodo: result.contratacoes_periodo || 0,
           demissoes_periodo: result.demissoes_periodo || 0,
+          registros_debug: result.total_registros_debug || 0,
           fonte: "R034FUN (Fórmulas DAX exatas do usuário)",
           empresa: empresa,
           detalhes: {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: ano <= 2024 ? "tipcol = 1 (períodos históricos)" : "tipcol IN (1,3,5) (períodos recentes)",
-            status: "LÓGICA HÍBRIDA OTIMIZADA PARA CADA PERÍODO ✅",
-            targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A"
+            funcionarios_formula: "DISTINCT numcad - contando funcionários únicos, não registros duplicados",
+            status: "CORRIGINDO PROBLEMA RAIZ: FUNCIONÁRIOS ÚNICOS vs REGISTROS ✅",
+            targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
+            debug_info: `Funcionários únicos: ${count}, Total registros: ${result.total_registros_debug || 0}`
           },
           timestamp: new Date().toISOString()
         }
