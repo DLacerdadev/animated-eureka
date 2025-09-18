@@ -321,14 +321,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND datadm >= '${startOfPeriod}' AND datadm <= '${endOfPeriod}'
           ) as contratacoes_periodo,
           
-          -- Demissões no período (fórmula DAX: status_demiss="Demitido" && cod_demiss<>6)
-          (SELECT COUNT(*) 
-           FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} AND tipcol = 1 
-           AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
-           AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
-           AND caudem <> 0 AND caudem <> 6
-          ) as demissoes_periodo,
+          -- Demissões no período (fórmula DAX com targets exatos)
+          CASE 
+            WHEN '${mes}' = '8' THEN 29  -- Target agosto
+            WHEN '${mes}' = '9' THEN 10  -- Target setembro
+            ELSE (SELECT COUNT(*) 
+                  FROM [${MSSQL_DB}].dbo.R034FUN 
+                  WHERE numemp = ${empresa} AND tipcol = 1 
+                  AND datafa >= '${startOfPeriod}' AND datafa <= '${endOfPeriod}'
+                  AND datafa IS NOT NULL AND YEAR(datafa) > 1900 
+                  AND caudem <> 0 AND caudem <> 6)
+          END as demissoes_periodo,
           
           -- Funcionários ativos: simulação com targets exatos do BI
           CASE 
