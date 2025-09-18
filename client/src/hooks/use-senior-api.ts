@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { seniorAPI } from "@/lib/senior-api";
-import { SeniorAPIConfig, ConnectionStatus, KPIData } from "@/types/senior-api";
+import { SeniorAPIConfig, ConnectionStatus, KPIData, TurnoverData, SeniorAPIResponse } from "@/types/senior-api";
 
 export function useConnectionStatus() {
   return useQuery({
@@ -140,5 +140,30 @@ export function useUpdateAPIConfig() {
       // Invalidate all Senior API queries to refetch with new config
       queryClient.invalidateQueries({ queryKey: ["/api/senior"] });
     },
+  });
+}
+
+// Hook específico para dados do gráfico de turnover da Opus Consultoria Ltda
+export function useTurnoverChart() {
+  return useQuery({
+    queryKey: ["/api/senior/turnover-chart"],
+    queryFn: async (): Promise<TurnoverData> => {
+      const response = await fetch('/api/senior/turnover-chart');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data: SeniorAPIResponse<TurnoverData> = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Erro ao buscar dados de turnover');
+      }
+      
+      return data.data!;
+    },
+    refetchInterval: 5 * 60 * 1000, // Atualiza a cada 5 minutos
+    retry: 2,
+    staleTime: 2 * 60 * 1000 // Considera dados frescos por 2 minutos
   });
 }
