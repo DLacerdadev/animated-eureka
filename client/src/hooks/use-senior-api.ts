@@ -148,7 +148,11 @@ export function useTurnoverChart() {
   return useQuery({
     queryKey: ["/api/senior/turnover-chart"],
     queryFn: async (): Promise<TurnoverData> => {
-      const response = await fetch('/api/senior/turnover-chart');
+      const response = await fetch('/api/senior/turnover-chart', {
+        headers: {
+          'x-api-key': 'OpusApiKey_2025!'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

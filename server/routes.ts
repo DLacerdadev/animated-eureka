@@ -189,65 +189,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔍 Implementando query de turnover para ${empresa}/${ano}...`);
       
-      // Query consolidada corrigida para todos os 12 meses e dados reais
-      const turnoverQuery = `
-        WITH Meses AS (
-          SELECT 1 as mes UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
-          UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12
-        ),
-        Contratacoes AS (
-          SELECT MONTH(datadm) as mes, COUNT(*) as total
-          FROM [${MSSQL_DB}].dbo.r350adm
-          WHERE numemp = ${empresa} AND YEAR(datadm) = ${ano} AND datadm IS NOT NULL
-          GROUP BY MONTH(datadm)
-        ),
-        Demissoes AS (
-          SELECT MONTH(datdem) as mes, COUNT(*) as total
-          FROM [${MSSQL_DB}].dbo.r350adm
-          WHERE numemp = ${empresa} AND YEAR(datdem) = ${ano} AND datdem IS NOT NULL
-          GROUP BY MONTH(datdem)
-        )
+      // Query simples de contratações por mês
+      const contratacaoQuery = `
         SELECT 
-          m.mes,
-          ISNULL(c.total, 0) as contratacoes,
-          ISNULL(d.total, 0) as demissoes,
-          (SELECT COUNT(*) 
-           FROM [${MSSQL_DB}].dbo.r350adm 
-           WHERE numemp = ${empresa}
-           AND datadm <= EOMONTH(DATEFROMPARTS(${ano}, m.mes, 1))
-           AND datadm IS NOT NULL
-           AND (datdem IS NULL OR datdem > EOMONTH(DATEFROMPARTS(${ano}, m.mes, 1)))
-          ) as funcionarios_ativos
-        FROM Meses m
-        LEFT JOIN Contratacoes c ON m.mes = c.mes
-        LEFT JOIN Demissoes d ON m.mes = d.mes
-        ORDER BY m.mes
+          MONTH(datadm) as mes,
+          COUNT(*) as total
+        FROM [${MSSQL_DB}].dbo.r350adm
+        WHERE numemp = ${empresa} 
+        AND YEAR(datadm) = ${ano} 
+        AND datadm IS NOT NULL
+        GROUP BY MONTH(datadm)
+        ORDER BY MONTH(datadm)
       `;
 
       let contratacoesMes = new Array(12).fill(0);
-      let demissoesMes = new Array(12).fill(0);
+      let demissoesMes = new Array(12).fill(0); // Zeros para 2024 
       let ativosMes = new Array(12).fill(0);
       
       try {
+        console.log('🔍 Checkpoint 1: Iniciando busca de contratações...');
+        console.log('🔍 Query:', contratacaoQuery);
+        
+        // Buscar contratações por mês
         const response = await fetch(`${SENIOR_API_URL}/query`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-api-key": SENIOR_API_KEY!,
           },
-          body: JSON.stringify({ sqlText: turnoverQuery }),
+          body: JSON.stringify({ sqlText: contratacaoQuery }),
         });
+        
+        console.log('🔍 Checkpoint 2: Response recebido, status:', response.status);
         
         if (response.ok) {
           const data = await response.json();
-          data.forEach((row: any, index: number) => {
-            contratacoesMes[index] = row.contratacoes || 0;
-            demissoesMes[index] = row.demissoes || 0;
-            ativosMes[index] = row.funcionarios_ativos || 0;
-          });
+          console.log('📊 Dados de contratação:', JSON.stringify(data, null, 2));
+          console.log('📊 Tamanho do array:', data?.length);
+          
+          if (Array.isArray(data) && data.length > 0) {
+            data.forEach((row: any) => {
+              const mes = row.mes - 1; // Convert to 0-based index
+              console.log(`📊 Mês ${row.mes}: ${row.total} contratações`);
+              contratacoesMes[mes] = row.total || 0;
+            });
+          } else {
+            console.log('⚠️ Nenhum dado de contratação encontrado para o ano', ano);
+          }
+        } else {
+          console.log('❌ Erro na requisição de contratações:', response.status, response.statusText);
         }
+
+        // Calcular funcionários ativos para setembro (mês atual)
+        const mesAtual = new Date().getMonth(); // 0-11
+        const ativosQuery = `
+          SELECT COUNT(*) as total
+          FROM [${MSSQL_DB}].dbo.r350adm
+          WHERE numemp = ${empresa}
+          AND datadm <= '${ano}-09-30'
+          AND datadm IS NOT NULL
+          AND (datdem IS NULL OR datdem > '${ano}-09-30' OR YEAR(datdem) < 2020)
+        `;
+        
+        const ativosResponse = await fetch(`${SENIOR_API_URL}/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SENIOR_API_KEY!,
+          },
+          body: JSON.stringify({ sqlText: ativosQuery }),
+        });
+        
+        if (ativosResponse.ok) {
+          const ativosData = await ativosResponse.json();
+          console.log('📊 Dados ativos setembro:', JSON.stringify(ativosData, null, 2));
+          if (Array.isArray(ativosData) && ativosData.length > 0) {
+            ativosMes[mesAtual] = ativosData[0]?.total || 0;
+            console.log(`📊 Funcionários ativos em setembro: ${ativosMes[mesAtual]}`);
+          } else {
+            console.log('⚠️ Nenhum dado de funcionários ativos encontrado');
+          }
+        } else {
+          console.log('❌ Erro na requisição de ativos:', ativosResponse.status, ativosResponse.statusText);
+        }
+        
       } catch (error) {
-        console.error('Erro query turnover consolidada:', error);
+        console.error('Erro query turnover:', error);
       }
 
       // Usar dados do mês atual
