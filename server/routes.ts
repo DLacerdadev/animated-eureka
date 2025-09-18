@@ -175,27 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // ========== ROTAS DA API HIALINX ==========
-
-  // Rota básica de informações (seguindo padrão Hialinx)
-  app.get('/', (req, res) => {
-    res.type('text').send(
-`API Dashboard HR - Senior Integration
-
-Rotas principais:
-  - GET  /                 (informações da API)
-  - GET  /api/health       (health check)
-  - GET  /api/tables       (header: x-api-key) - Lista tabelas do banco
-  - POST /api/query        (header: x-api-key, body: { "sqlText": "SELECT ..." })
-
-Obs:
-  * As consultas devem referenciar o DB explicitamente, ex.:
-      SELECT TOP 5 * FROM [${MSSQL_DB}].INFORMATION_SCHEMA.TABLES
-  * Somente SELECT é permitido.
-  * Sua API_KEY atual é definida no .env (não exibida aqui).
-
-Dashboard HR - Integração com Senior Platform`
-    );
-  });
+  // Nota: A rota raiz '/' é servida pelo Vite para o dashboard React
 
   // Health check (seguindo padrão Hialinx)
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
