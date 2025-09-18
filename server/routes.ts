@@ -384,7 +384,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
           ) as empresas_distintas,
           
-          -- 🔍 DIAGNÓSTICO CRÍTICO: Funcionários demitidos EXATAMENTE no último dia
+          -- 🔍 TESTE MÚLTIPLAS EMPRESAS: Se incluirmos TODAS as empresas (1-9)
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp IN (1,2,3,4,5,6,7,8,9)  -- TODAS as 9 empresas
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}
+           ${ano <= 2024 ? 'AND sitafa = 1' : '-- Períodos ≥2025: SEM filtro sitafa'}
+           AND datadm <= '${endOfPeriod}'
+           AND (datafa IS NULL OR datafa >= '${endOfPeriod}' OR YEAR(datafa) <= 1900)
+          ) as funcionarios_todas_9_empresas,
+          
+          -- 🔍 TESTE GRUPO OPUS: Empresas 1, 2, 3 (possível grupo principal)
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp IN (1,2,3)  -- Grupo principal Opus?
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}
+           ${ano <= 2024 ? 'AND sitafa = 1' : '-- Períodos ≥2025: SEM filtro sitafa'}
+           AND datadm <= '${endOfPeriod}'
+           AND (datafa IS NULL OR datafa >= '${endOfPeriod}' OR YEAR(datafa) <= 1900)
+          ) as funcionarios_empresas_1_2_3,
+          
+          -- 🔍 TRANSFERÊNCIAS E RECONTRATAÇÕES (possível causa dos -15)
+          
+          -- Transferidos no período (código 6)
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa}
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}
+           AND datadm <= '${endOfPeriod}'
+           AND datafa IS NOT NULL AND YEAR(datafa) > 1900
+           AND datafa <= '${endOfPeriod}'
+           AND caudem = 6  -- Código de transferência
+          ) as transferidos_periodo,
+          
+          -- Recontratados no mesmo mês (demitido e readmitido)
+          (SELECT COUNT(DISTINCT f1.numcad)
+           FROM [${MSSQL_DB}].dbo.R034FUN f1
+           WHERE f1.numemp = ${empresa} 
+           AND f1.${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}
+           AND f1.datadm <= '${endOfPeriod}'
+           AND EXISTS (
+             SELECT 1 FROM [${MSSQL_DB}].dbo.R034FUN f2
+             WHERE f2.numcad = f1.numcad AND f2.numemp = ${empresa}
+             AND f2.datafa IS NOT NULL AND YEAR(f2.datafa) > 1900
+             AND f2.datafa >= DATEADD(MONTH, DATEDIFF(MONTH, 0, '${endOfPeriod}'), 0)  -- Início do mês
+             AND f2.datafa <= '${endOfPeriod}'  -- Fim do período
+           )
+          ) as recontratados_mes,
+          
+          -- Funcionários demitidos EXATAMENTE no último dia (empresa 1)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa}
@@ -492,9 +540,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`✅ Funcionários ativos (lógica híbrida): ${count}`);
       console.log(`📊 Funcionários lógica antiga (sem último dia): ${result.funcionarios_antiga_logica}`);
       console.log(`👥 Funcionários tipcol IN (3,5): ${result.funcionarios_tipcol_3_5} (estagiários/temporários)`);
-      console.log(`🗓️ Demitidos ÚLTIMO DIA: ${result.demitidos_ultimo_dia} (possível causa da diferença!)`);
+      console.log(`🗓️ Demitidos ÚLTIMO DIA: ${result.demitidos_ultimo_dia}`);
       console.log(`🏢 Empresas distintas: ${result.empresas_distintas}`);
-      console.log(`🎯 BI Esperado: ${mes === 8 ? '434' : mes === 9 ? '441' : 'N/A'}`);
+      
+      console.log(`\n🔍 TESTE AGREGAÇÃO DE EMPRESAS:`);
+      console.log(`🏭 TODAS as 9 empresas: ${result.funcionarios_todas_9_empresas}`);
+      console.log(`🏢 Empresas 1,2,3 (grupo?): ${result.funcionarios_empresas_1_2_3}`);
+      console.log(`🏗️ Apenas empresa 1 (atual): ${count}`);
+      
+      console.log(`\n🔍 INVESTIGAÇÃO TRANSFERÊNCIAS E RECONTRATAÇÕES:`);
+      console.log(`🔄 Transferidos período (código 6): ${result.transferidos_periodo || 0}`);
+      console.log(`🔁 Recontratados no mês: ${result.recontratados_mes || 0}`);
+      
+      console.log(`\n🎯 BI Esperado: ${mes === 8 ? '434' : mes === 9 ? '441' : 'N/A'}`);
       console.log(`🔄 Diferença para o alvo: ${mes === 8 ? (count - 434) : mes === 9 ? (count - 441) : 'N/A'}`);
 
       return res.json({
@@ -511,6 +569,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             demitidos_ultimo_dia: result.demitidos_ultimo_dia || 0,
             empresas_distintas: result.empresas_distintas || 0,
             funcionarios_outras_empresas: result.funcionarios_outras_empresas || 0,
+            funcionarios_todas_9_empresas: result.funcionarios_todas_9_empresas || 0,
+            funcionarios_empresas_1_2_3: result.funcionarios_empresas_1_2_3 || 0,
+            transferidos_periodo: result.transferidos_periodo || 0,
+            recontratados_mes: result.recontratados_mes || 0,
             logica_aplicada: ano <= 2024 ? 'tipcol=1+sitafa=1' : 'tipcol(1,3,5)+sem_sitafa+ultimo_dia',
             com_sitafa_1: result.com_sitafa_1 || 0
           },
