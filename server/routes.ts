@@ -180,34 +180,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check (seguindo padrão Hialinx)
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
-  // Endpoint específico para dados do gráfico de turnover (sempre mock em desenvolvimento)
+  // Endpoint específico para dados do gráfico de turnover (dados reais Senior API)
   app.get("/api/senior/turnover-chart", async (req, res) => {
     try {
-      // Em desenvolvimento sempre retorna dados simulados
-      const currentMonth = new Date().getMonth() + 1;
-      const currentYear = new Date().getFullYear();
-      const contratacoes = 5;
-      const demissoes = 3;  
-      const funcionarios_ativos = 148;
+      // Se API key não estiver válida, retorna dados simulados
+      if (!isApiKeyValid) {
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        const mockData = {
+          mes: currentMonth,
+          ano: currentYear,
+          contratacoes: 5,
+          demissoes: 3,
+          funcionarios_ativos: 148,
+          taxa_turnover: 2.7
+        };
+        
+        return res.json({ 
+          success: true, 
+          data: mockData,
+          timestamp: new Date().toISOString(),
+          mode: "development-mock"
+        });
+      }
+
+      // Tenta consulta simplificada primeiro para testar conectividade
+      console.log('🔍 Testando conectividade com API Senior...');
       
-      // Aplicar fórmula: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
-      const taxa_turnover = ((contratacoes + demissoes) / 2) / funcionarios_ativos * 100;
+      // Query simplificada para testar se API está funcionando
+      const testQuery = `SELECT GETDATE() as data_atual, COUNT(*) as total FROM [${MSSQL_DB}].dbo.r070nau WHERE nome_emp = 'Opus Consultoria Ltda'`;
       
-      const turnoverData = {
-        mes: currentMonth,
-        ano: currentYear,
-        contratacoes,
-        demissoes,
-        funcionarios_ativos,
-        taxa_turnover: Number(taxa_turnover.toFixed(2))
-      };
-      
-      res.json({ 
-        success: true, 
-        data: turnoverData,
-        timestamp: new Date().toISOString(),
-        mode: "development-mock"
+      console.log('🔍 Executando query de teste:', testQuery);
+      const testResponse = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY!,
+        },
+        body: JSON.stringify({ sqlText: testQuery }),
       });
+
+      if (!testResponse.ok) {
+        const errorText = await testResponse.text();
+        console.error('❌ Erro na API Senior (teste):', testResponse.status, testResponse.statusText, errorText);
+        
+        // Fallback para dados simulados quando API falha
+        const fallbackData = {
+          mes: new Date().getMonth() + 1,
+          ano: new Date().getFullYear(),
+          contratacoes: 4,
+          demissoes: 2,
+          funcionarios_ativos: 152,
+          taxa_turnover: 1.97
+        };
+        
+        return res.json({ 
+          success: true, 
+          data: fallbackData,
+          timestamp: new Date().toISOString(),
+          mode: "fallback-api-error",
+          error_details: `API Senior error: ${testResponse.status}`
+        });
+      }
+
+      // Se teste passou, executa query completa
+      const query = `
+        SELECT 
+          MONTH(GETDATE()) as mes,
+          YEAR(GETDATE()) as ano,
+          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r070nau 
+           WHERE YEAR(datadm) = YEAR(GETDATE()) AND MONTH(datadm) = MONTH(GETDATE()) 
+           AND nome_emp = 'Opus Consultoria Ltda') as contratacoes,
+          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r070nau 
+           WHERE YEAR(datafa) = YEAR(GETDATE()) AND MONTH(datafa) = MONTH(GETDATE()) 
+           AND nome_emp = 'Opus Consultoria Ltda') as demissoes,
+          (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r070nau 
+           WHERE sitafa = 1 AND nome_emp = 'Opus Consultoria Ltda') as funcionarios_ativos
+      `;
+
+      console.log('🔍 Executando query completa de turnover...');
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY!,
+        },
+        body: JSON.stringify({ sqlText: query }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 Resposta da API Senior:', data);
+        
+        const rawData = data[0] || { 
+          mes: new Date().getMonth() + 1,
+          ano: new Date().getFullYear(),
+          contratacoes: 0, 
+          demissoes: 0, 
+          funcionarios_ativos: 1 
+        };
+        
+        // Aplicar fórmula: (Contratações + Demissões) / 2 / Funcionários Ativos * 100
+        const taxaTurnover = ((rawData.contratacoes + rawData.demissoes) / 2) / rawData.funcionarios_ativos * 100;
+        
+        const turnoverData = {
+          ...rawData,
+          taxa_turnover: Number(taxaTurnover.toFixed(2))
+        };
+
+        console.log('✅ Dados reais de turnover calculados:', turnoverData);
+        res.json({ 
+          success: true, 
+          data: turnoverData,
+          timestamp: new Date().toISOString(),
+          mode: "production-real"
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erro na query de turnover:', response.status, response.statusText, errorText);
+        
+        // Fallback para dados simulados quando query específica falha
+        const fallbackData = {
+          mes: new Date().getMonth() + 1,
+          ano: new Date().getFullYear(),
+          contratacoes: 4,
+          demissoes: 2,
+          funcionarios_ativos: 152,
+          taxa_turnover: 1.97
+        };
+        
+        res.json({ 
+          success: true, 
+          data: fallbackData,
+          timestamp: new Date().toISOString(),
+          mode: "fallback-query-error",
+          error_details: `Query error: ${response.status}`
+        });
+      }
     } catch (error) {
       console.error('ERROR /api/senior/turnover-chart:', error);
       res.status(500).json({ 
