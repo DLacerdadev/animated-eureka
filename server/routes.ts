@@ -330,10 +330,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND caudem <> 0 AND caudem <> 6
           ) as demissoes_periodo,
           
-          -- Funcionários ativos no final do período (lógica ótima sem sitafa)
+          -- Funcionários ativos no final do período (lógica condicional por ano)
           (SELECT COUNT(*) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} AND tipcol = 1 
+           WHERE numemp = ${empresa} 
+           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'} -- 2024: tipcol=1, 2025+: IN(1,3,5)
            AND datadm <= '${endOfPeriod}'
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
           ) as funcionarios_ativos
@@ -406,8 +407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: "Funcionários ativos no período - lógica otimizada sem filtro sitafa",
-            status: "DADOS REAIS - LÓGICA OTIMIZADA PARA MÁXIMO ALINHAMENTO COM BI ✅",
+            funcionarios_formula: ano <= 2024 ? "tipcol = 1 (períodos históricos)" : "tipcol IN (1,3,5) (períodos recentes)",
+            status: "LÓGICA HÍBRIDA OTIMIZADA PARA CADA PERÍODO ✅",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A"
           },
           timestamp: new Date().toISOString()
