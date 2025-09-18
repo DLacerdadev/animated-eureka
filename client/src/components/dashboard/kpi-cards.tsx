@@ -1,7 +1,7 @@
 import { useKPIData, useActiveEmployees } from "@/hooks/use-senior-api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, RotateCcw, Watch, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { Users, UserPlus, UserMinus, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const formatNumber = (num: number) => {
@@ -58,8 +58,10 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
     );
   }
 
-  // Use dados reais de funcionários ativos mesmo se outros KPIs não estiverem disponíveis
+  // Use dados reais de funcionários ativos e movimentações do período
   const totalEmployees = activeEmployees?.funcionarios_ativos || 0;
+  const hires = activeEmployees?.contratacoes_periodo || 0;
+  const terminations = activeEmployees?.demissoes_periodo || 0;
 
   const kpis = [
     {
@@ -71,20 +73,20 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
       color: "chart-1",
     },
     {
-      title: "Turnover Mensal",
-      value: kpiData ? formatPercentage(kpiData.monthlyTurnover) : "0,0%",
-      subtitle: "Baseado em contratações/demissões",
-      icon: RotateCcw,
-      trend: kpiData?.trends.turnover || -1.1,
-      color: "chart-3",
+      title: "Contratações",
+      value: formatNumber(hires),
+      subtitle: `Período: ${selectedMonth}/${selectedYear}`,
+      icon: UserPlus,
+      trend: hires > 0 ? 100 : 0,
+      color: "chart-2",
     },
     {
-      title: "Absenteísmo",
-      value: kpiData ? formatPercentage(kpiData.absenteeismRate) : "0,0%",
-      subtitle: "Dados em integração",
-      icon: Watch,
-      trend: kpiData?.trends.absenteeism || 0.3,
-      color: "chart-4",
+      title: "Desligamentos",
+      value: formatNumber(terminations),
+      subtitle: `Período: ${selectedMonth}/${selectedYear}`,
+      icon: UserMinus,
+      trend: terminations > 0 ? -100 : 0,
+      color: "chart-5",
     },
     {
       title: "Horas Extra",

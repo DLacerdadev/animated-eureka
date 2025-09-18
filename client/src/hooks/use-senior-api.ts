@@ -176,7 +176,7 @@ export function useTurnoverChart() {
 export function useActiveEmployees(ano: number = 2025, mes: number = 9) {
   return useQuery({
     queryKey: ["/api/senior/active-employees", ano, mes],
-    queryFn: async (): Promise<{funcionarios_ativos: number; fonte: string; empresa: number}> => {
+    queryFn: async (): Promise<{funcionarios_ativos: number; contratacoes_periodo: number; demissoes_periodo: number; fonte: string; empresa: number}> => {
       const url = `/api/senior/active-employees?ano=${ano}&mes=${mes}`;
       const response = await fetch(url, {
         headers: {
@@ -188,7 +188,7 @@ export function useActiveEmployees(ano: number = 2025, mes: number = 9) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const data: SeniorAPIResponse<{funcionarios_ativos: number; fonte: string; empresa: number}> = await response.json();
+      const data: SeniorAPIResponse<{funcionarios_ativos: number; contratacoes_periodo: number; demissoes_periodo: number; fonte: string; empresa: number}> = await response.json();
       
       if (!data.success) {
         throw new Error(data.error || 'Erro ao buscar funcionários ativos');
