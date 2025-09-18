@@ -242,6 +242,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
+      // Query de teste para verificar estrutura da coluna datdem
+      console.log('🔍 Investigando estrutura da coluna datdem...');
+      try {
+        const testeDemissaoQuery = `
+          SELECT 
+            COUNT(*) as total_registros,
+            COUNT(datdem) as registros_com_datdem,
+            COUNT(CASE WHEN datdem IS NULL THEN 1 END) as registros_datdem_null,
+            MIN(datdem) as primeira_demissao,
+            MAX(datdem) as ultima_demissao
+          FROM [${MSSQL_DB}].dbo.r350adm
+          WHERE numemp = 1
+        `;
+        
+        const testeResponse = await fetch(`${SENIOR_API_URL}/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SENIOR_API_KEY!,
+          },
+          body: JSON.stringify({ sqlText: testeDemissaoQuery }),
+        });
+        
+        if (testeResponse.ok) {
+          const testeData = await testeResponse.json();
+          console.log('📊 Análise coluna datdem:', testeData[0]);
+        }
+      } catch (error) {
+        console.error('Erro teste datdem:', error);
+      }
+
       // Query para demissões por mês (baseada em r350adm.datdem)
       const demissoesMes = await Promise.all(
         Array.from({ length: 12 }, async (_, i) => {
