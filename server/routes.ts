@@ -334,40 +334,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
           -- 🎯 FUNCIONÁRIOS ATIVOS = FÓRMULA DAX SIMPLIFICADA
           -- Como no BI: Total admitidos - Total demitidos - Total transferidos
           (
-            -- Parte 1: Total contratados até o final do período  
+            -- Parte 1: Total contratados até o final do período (COM SITAFA=1)
             (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
              WHERE numemp = ${empresa} 
-             AND tipcol IN (1,3,5)  -- Todos os tipos de contrato
+             AND tipcol = 1 
+             AND sitafa = 1  -- 🎯 TESTE: Aplicar sitafa=1 na fórmula subtrativa
              AND datadm <= '${endOfPeriod}'
             )
             -
-            -- Parte 2: Total demitidos acumulados até o período
+            -- Parte 2: Total demitidos acumulados até o período (COM SITAFA=1)
             (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
              WHERE numemp = ${empresa}
-             AND tipcol IN (1,3,5)
+             AND tipcol = 1
+             AND sitafa = 1  -- 🎯 TESTE: Aplicar sitafa=1 na fórmula subtrativa
              AND datafa <= '${endOfPeriod}'
              AND datafa IS NOT NULL AND YEAR(datafa) > 1900
              AND caudem <> 0 AND caudem <> 6  -- Excluir transferências (cod 6)
             )
             -
-            -- Parte 3: Total transferidos acumulados até o período
+            -- Parte 3: Total transferidos acumulados até o período (COM SITAFA=1)
             (SELECT COUNT(DISTINCT numcad) 
              FROM [${MSSQL_DB}].dbo.R034FUN 
              WHERE numemp = ${empresa}
-             AND tipcol IN (1,3,5)
+             AND tipcol = 1
+             AND sitafa = 1  -- 🎯 TESTE: Aplicar sitafa=1 na fórmula subtrativa
              AND datafa <= '${endOfPeriod}'
              AND datafa IS NOT NULL AND YEAR(datafa) > 1900
              AND caudem = 6  -- Apenas transferências
             )
           ) as funcionarios_ativos,
           
-          -- Diagnóstico: Com sitafa = 1 no final do período + DISTINCT
+          -- 🎯 DIAGNÓSTICOS DETALHADOS PARA INVESTIGAR -8 FUNCIONÁRIOS
+          
+          -- Total contratados até período (Parte 1 - COM SITAFA=1)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE numemp = ${empresa} 
-           AND ${ano <= 2024 ? 'tipcol = 1' : 'tipcol IN (1,3,5)'}
+           WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
+           AND datadm <= '${endOfPeriod}'
+          ) as total_contratados_ate_periodo,
+          
+          -- Total demitidos até período (Parte 2 - COM SITAFA=1)
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
+           AND datafa <= '${endOfPeriod}'
+           AND datafa IS NOT NULL AND YEAR(datafa) > 1900
+           AND caudem <> 0 AND caudem <> 6
+          ) as total_demitidos_ate_periodo,
+          
+          -- Total transferidos até período (Parte 3 - COM SITAFA=1)
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
+           AND datafa <= '${endOfPeriod}'
+           AND datafa IS NOT NULL AND YEAR(datafa) > 1900
+           AND caudem = 6
+          ) as total_transferidos_ate_periodo,
+          
+          -- Diagnóstico sitafa (para comparação)
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} AND tipcol = 1
            AND datadm <= '${endOfPeriod}'
            AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
            AND sitafa = 1
@@ -447,6 +476,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const result = Array.isArray(data) && data.length > 0 ? data[0] : { funcionarios_ativos: 0, contratacoes_periodo: 0, demissoes_periodo: 0 };
       const count = result.funcionarios_ativos || 0;
+      
+      // 🎯 DIAGNÓSTICOS DETALHADOS PARA INVESTIGAR -8 FUNCIONÁRIOS
+      console.log(`🔍 DIAGNÓSTICOS DETALHADOS (${mes}/${ano}):`);
+      console.log(`📊 Fórmula: ${result.total_contratados_ate_periodo} - ${result.total_demitidos_ate_periodo} - ${result.total_transferidos_ate_periodo} = ${count}`);
+      console.log(`📈 Contratados até ${endOfPeriod}: ${result.total_contratados_ate_periodo}`);
+      console.log(`📉 Demitidos até ${endOfPeriod}: ${result.total_demitidos_ate_periodo}`);  
+      console.log(`🔄 Transferidos até ${endOfPeriod}: ${result.total_transferidos_ate_periodo}`);
+      console.log(`✅ Resultado Final: ${count}`);
+      console.log(`🎯 BI Esperado: ${mes === 8 ? '434' : mes === 9 ? '441' : 'N/A'}`);
+      console.log(`📊 Com sitafa=1: ${result.com_sitafa_1 || 0}`);
 
       return res.json({
         success: true,
@@ -457,7 +496,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           diagnosticos: {
             com_sitafa_1: result.com_sitafa_1 || 0,
             so_datafa_null: result.so_datafa_null || 0,
-            sitafa_1_datafa_null: result.sitafa_1_datafa_null || 0
+            sitafa_1_datafa_null: result.sitafa_1_datafa_null || 0,
+            // 🎯 Diagnósticos detalhados da fórmula DAX
+            total_contratados_ate_periodo: result.total_contratados_ate_periodo || 0,
+            total_demitidos_ate_periodo: result.total_demitidos_ate_periodo || 0,
+            total_transferidos_ate_periodo: result.total_transferidos_ate_periodo || 0
           },
           fonte: "R034FUN (Fórmulas DAX exatas do usuário)",
           empresa: empresa,
@@ -465,8 +508,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: "FÓRMULA DAX SIMPLIFICADA: Total admitidos acumulados - demitidos - transferidos",
-            status: "🎯 IMPLEMENTAÇÃO SIMPLIFICADA DA FÓRMULA DAX (sem JOINs)",
+            funcionarios_formula: "FÓRMULA DAX + SITAFA=1: Total admitidos (com sitafa=1) - demitidos - transferidos",
+            status: "🎯 TESTE SITAFA=1 NA FÓRMULA SUBTRATIVA",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
             debug_info: `Funcionários: ${count}, Diagnóstico sitafa: ${result.com_sitafa_1 || 0}`
           },
