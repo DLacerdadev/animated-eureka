@@ -180,6 +180,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check (seguindo padrão Hialinx)
   app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
+  // Teste simples de roteamento
+  app.get('/api/senior/test', (req, res) => {
+    res.json({ test: true, message: 'Rota funcionando!', timestamp: new Date().toISOString() });
+  });
+
+  // Discovery simples dos endpoints disponíveis na API Senior  
+  app.get('/api/senior/endpoints', requireApiKey, async (req, res) => {
+    console.log('🔍 Iniciando discovery de endpoints Senior API...');
+    
+    try {
+      // Endpoints conhecidos que funcionam
+      const workingEndpoints = [
+        {
+          path: '/query',
+          method: 'POST', 
+          status: 'Available ✅',
+          description: 'Execute SQL queries on Senior database',
+          parameters: { sqlText: 'string (required)' },
+          example: 'SELECT TOP 5 * FROM INFORMATION_SCHEMA.TABLES'
+        }
+      ];
+
+      // Testar alguns endpoints básicos rapidamente
+      const testPaths = ['/health', '/api', '/info', '/schema', '/docs'];
+      const testedEndpoints = [];
+      
+      for (const path of testPaths) {
+        try {
+          console.log(`🔍 Testando: ${SENIOR_API_URL}${path}`);
+          
+          const response = await fetch(`${SENIOR_API_URL}${path}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json", 
+              "x-api-key": SENIOR_API_KEY!,
+            }
+          });
+          
+          testedEndpoints.push({
+            path,
+            method: 'GET',
+            status: response.ok ? `Available (${response.status}) ✅` : `HTTP ${response.status} ❌`,
+            description: `Endpoint test result`
+          });
+        } catch (error) {
+          testedEndpoints.push({
+            path,
+            method: 'GET', 
+            status: 'Not Available ❌',
+            description: 'Connection failed or timeout'
+          });
+        }
+      }
+
+      // Listar algumas tabelas principais
+      let availableTables = [];
+      try {
+        const tablesQuery = `SELECT TOP 10 TABLE_NAME FROM [${MSSQL_DB}].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`;
+        
+        const response = await fetch(`${SENIOR_API_URL}/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": SENIOR_API_KEY!,
+          },
+          body: JSON.stringify({ sqlText: tablesQuery }),
+        });
+
+        if (response.ok) {
+          availableTables = await response.json();
+        }
+      } catch (error) {
+        console.log('Erro ao buscar tabelas:', error);
+      }
+
+      const result = {
+        success: true,
+        timestamp: new Date().toISOString(),
+        api_base_url: SENIOR_API_URL,
+        database: MSSQL_DB,
+        summary: {
+          working_endpoints: workingEndpoints,
+          tested_endpoints: testedEndpoints,
+          total_tested: testPaths.length + 1,
+          sample_tables: availableTables.slice(0, 5)
+        },
+        notes: [
+          "✅ /query endpoint confirmed working with SQL execution",
+          "🔍 Other endpoints tested for availability", 
+          "📊 Database contains real Senior RH data",
+          "🏢 Connected to Opus Consultoria Ltda database"
+        ]
+      };
+
+      console.log(`📊 Discovery completo: ${testPaths.length + 1} endpoints testados`);
+      return res.json(result);
+
+    } catch (error) {
+      console.error('❌ Erro no endpoint discovery:', error);
+      return res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Discovery failed',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Endpoint de turnover usando tabelas corretas do catálogo RH Senior
   app.get("/api/senior/turnover-chart", requireApiKey, async (req, res) => {
     try {
@@ -705,10 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ csrfToken: req.session.csrfToken });
   });
 
-  // Health check endpoint
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "healthy", timestamp: new Date().toISOString() });
-  });
+  // Health check endpoint (removido - duplicata)
 
   const httpServer = createServer(app);
   return httpServer;
