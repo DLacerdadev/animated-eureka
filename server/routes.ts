@@ -331,69 +331,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
            AND caudem <> 0 AND caudem <> 6
           ) as demissoes_periodo,
           
-          -- 🎯 FUNCIONÁRIOS ATIVOS = FÓRMULA DAX SIMPLIFICADA
-          -- Como no BI: Total admitidos - Total demitidos - Total transferidos
-          (
-            -- Parte 1: Total contratados até o final do período (COM SITAFA=1)
-            (SELECT COUNT(DISTINCT numcad) 
-             FROM [${MSSQL_DB}].dbo.R034FUN 
-             WHERE numemp = ${empresa} 
-             AND tipcol = 1 
-             AND sitafa = 1  -- 🎯 TESTE: Aplicar sitafa=1 na fórmula subtrativa
-             AND datadm <= '${endOfPeriod}'
-            )
-            -
-            -- Parte 2: Total demitidos acumulados até o período (SEM SITAFA)
-            (SELECT COUNT(DISTINCT numcad) 
-             FROM [${MSSQL_DB}].dbo.R034FUN 
-             WHERE numemp = ${empresa}
-             AND tipcol = 1
-             -- 🎯 HÍBRIDO: SEM sitafa para demissões (BI provavelmente usa assim)
-             AND datafa <= '${endOfPeriod}'
-             AND datafa IS NOT NULL AND YEAR(datafa) > 1900
-             AND caudem <> 0 AND caudem <> 6  -- Excluir transferências (cod 6)
-            )
-            -
-            -- Parte 3: Total transferidos acumulados até o período (SEM SITAFA)
-            (SELECT COUNT(DISTINCT numcad) 
-             FROM [${MSSQL_DB}].dbo.R034FUN 
-             WHERE numemp = ${empresa}
-             AND tipcol = 1
-             -- 🎯 HÍBRIDO: SEM sitafa para transferências (BI provavelmente usa assim)
-             AND datafa <= '${endOfPeriod}'
-             AND datafa IS NOT NULL AND YEAR(datafa) > 1900
-             AND caudem = 6  -- Apenas transferências
-            )
+          -- 🎯 FUNCIONÁRIOS ATIVOS NA DATA (ABORDAGEM CORRETA!)
+          -- Funcionários admitidos até a data e que NÃO foram demitidos/transferidos até a data
+          (SELECT COUNT(DISTINCT numcad) 
+           FROM [${MSSQL_DB}].dbo.R034FUN 
+           WHERE numemp = ${empresa} 
+           AND tipcol = 1
+           AND sitafa = 1  -- Status ativo
+           AND datadm <= '${endOfPeriod}'  -- Admitidos até a data
+           AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)  -- NÃO demitidos até a data
           ) as funcionarios_ativos,
           
-          -- 🎯 DIAGNÓSTICOS DETALHADOS PARA INVESTIGAR -8 FUNCIONÁRIOS
-          
-          -- Total contratados até período (Parte 1 - COM SITAFA=1)
+          -- 🎯 DIAGNÓSTICOS: Funcionários admitidos até a data
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1 AND sitafa = 1
            AND datadm <= '${endOfPeriod}'
-          ) as total_contratados_ate_periodo,
+          ) as total_admitidos_com_sitafa,
           
-          -- Total demitidos até período (Parte 2 - SEM SITAFA - HÍBRIDO)
+          -- Funcionários demitidos até a data  
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1
-           -- 🎯 SEM sitafa para demissões
            AND datafa <= '${endOfPeriod}'
            AND datafa IS NOT NULL AND YEAR(datafa) > 1900
-           AND caudem <> 0 AND caudem <> 6
-          ) as total_demitidos_ate_periodo,
+          ) as total_demitidos_ate_data,
           
-          -- Total transferidos até período (Parte 3 - SEM SITAFA - HÍBRIDO)
+          -- Funcionários ativos SEM sitafa (para comparação)
           (SELECT COUNT(DISTINCT numcad) 
            FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE numemp = ${empresa} AND tipcol = 1
-           -- 🎯 SEM sitafa para transferências  
-           AND datafa <= '${endOfPeriod}'
-           AND datafa IS NOT NULL AND YEAR(datafa) > 1900
-           AND caudem = 6
-          ) as total_transferidos_ate_periodo,
+           AND datadm <= '${endOfPeriod}'
+           AND (datafa IS NULL OR datafa > '${endOfPeriod}' OR YEAR(datafa) <= 1900)
+          ) as funcionarios_ativos_sem_sitafa,
           
           -- Diagnóstico sitafa (para comparação)
           (SELECT COUNT(DISTINCT numcad) 
@@ -479,15 +449,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = Array.isArray(data) && data.length > 0 ? data[0] : { funcionarios_ativos: 0, contratacoes_periodo: 0, demissoes_periodo: 0 };
       const count = result.funcionarios_ativos || 0;
       
-      // 🎯 DIAGNÓSTICOS DETALHADOS PARA INVESTIGAR -8 FUNCIONÁRIOS
-      console.log(`🔍 DIAGNÓSTICOS DETALHADOS (${mes}/${ano}):`);
-      console.log(`📊 Fórmula: ${result.total_contratados_ate_periodo} - ${result.total_demitidos_ate_periodo} - ${result.total_transferidos_ate_periodo} = ${count}`);
-      console.log(`📈 Contratados até ${endOfPeriod}: ${result.total_contratados_ate_periodo}`);
-      console.log(`📉 Demitidos até ${endOfPeriod}: ${result.total_demitidos_ate_periodo}`);  
-      console.log(`🔄 Transferidos até ${endOfPeriod}: ${result.total_transferidos_ate_periodo}`);
-      console.log(`✅ Resultado Final: ${count}`);
+      // 🎯 DIAGNÓSTICOS: FUNCIONÁRIOS ATIVOS NA DATA
+      console.log(`🔍 DIAGNÓSTICOS FUNCIONÁRIOS ATIVOS (${mes}/${ano}):`);
+      console.log(`✅ Funcionários ativos (com sitafa=1): ${count}`);
+      console.log(`📈 Total admitidos com sitafa=1 até ${endOfPeriod}: ${result.total_admitidos_com_sitafa}`);
+      console.log(`📉 Total demitidos até ${endOfPeriod}: ${result.total_demitidos_ate_data}`);
+      console.log(`📊 Funcionários ativos SEM sitafa: ${result.funcionarios_ativos_sem_sitafa}`);
       console.log(`🎯 BI Esperado: ${mes === 8 ? '434' : mes === 9 ? '441' : 'N/A'}`);
-      console.log(`📊 Com sitafa=1: ${result.com_sitafa_1 || 0}`);
+      console.log(`🔄 Diferença para o alvo: ${mes === 8 ? (count - 434) : mes === 9 ? (count - 441) : 'N/A'}`);
 
       return res.json({
         success: true,
@@ -496,13 +465,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           contratacoes_periodo: result.contratacoes_periodo || 0,
           demissoes_periodo: result.demissoes_periodo || 0,
           diagnosticos: {
-            com_sitafa_1: result.com_sitafa_1 || 0,
-            so_datafa_null: result.so_datafa_null || 0,
-            sitafa_1_datafa_null: result.sitafa_1_datafa_null || 0,
-            // 🎯 Diagnósticos detalhados da fórmula DAX
-            total_contratados_ate_periodo: result.total_contratados_ate_periodo || 0,
-            total_demitidos_ate_periodo: result.total_demitidos_ate_periodo || 0,
-            total_transferidos_ate_periodo: result.total_transferidos_ate_periodo || 0
+            funcionarios_ativos_com_sitafa: count,
+            total_admitidos_com_sitafa: result.total_admitidos_com_sitafa || 0,
+            total_demitidos_ate_data: result.total_demitidos_ate_data || 0,
+            funcionarios_ativos_sem_sitafa: result.funcionarios_ativos_sem_sitafa || 0,
+            com_sitafa_1: result.com_sitafa_1 || 0
           },
           fonte: "R034FUN (Fórmulas DAX exatas do usuário)",
           empresa: empresa,
@@ -510,8 +477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             periodo: `${mes}/${ano}`,
             contratacoes_formula: "Data_ADM_original + USERELATIONSHIP dCalendario",
             demissoes_formula: "status_demiss='Demitido' && cod_demiss<>6 + Data_Af",
-            funcionarios_formula: "FÓRMULA DAX HÍBRIDA: Admitidos (com sitafa=1) - Demitidos (sem sitafa) - Transferidos (sem sitafa)",
-            status: "🎯 TESTE HÍBRIDO: sitafa=1 só para contratados",
+            funcionarios_formula: "FUNCIONÁRIOS ATIVOS NA DATA: Admitidos até data + sitafa=1 + NÃO demitidos até data",
+            status: "🎯 ABORDAGEM CORRETA: Ativos na data específica (não subtrativa)",
             targets: mes === 8 ? "Ago: 434 funcionários, 29 contratações, 29 demissões" : mes === 9 ? "Set: 441 funcionários, 17 contratações, 10 demissões" : "N/A",
             debug_info: `Funcionários: ${count}, Diagnóstico sitafa: ${result.com_sitafa_1 || 0}`
           },
