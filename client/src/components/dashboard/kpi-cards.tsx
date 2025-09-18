@@ -16,9 +16,14 @@ const formatPercentage = (num: number) => {
   }).format(num / 100);
 };
 
-export function KPICards() {
+interface KPICardsProps {
+  selectedMonth?: number;
+  selectedYear?: number;
+}
+
+export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsProps) {
   const { data: kpiData, isLoading, error } = useKPIData();
-  const { data: activeEmployees, isLoading: employeesLoading, error: employeesError } = useActiveEmployees();
+  const { data: activeEmployees, isLoading: employeesLoading, error: employeesError } = useActiveEmployees(selectedYear, selectedMonth);
 
   if (isLoading || employeesLoading) {
     return (

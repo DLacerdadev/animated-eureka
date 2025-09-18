@@ -296,7 +296,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`👥 Calculando funcionários ativos com filtros BI - Opus Consultoria (empresa ${empresa}) - ${mes}/${ano}`);
       
-      // 🎯 FÓRMULA EXATA DO BI - RESULTADO PERFEITO: 441 FUNCIONÁRIOS
+      // Calcular último dia do mês selecionado
+      const lastDayOfMonth = new Date(ano, mes, 0).getDate(); // mes já é 1-based no input
+      const endOfPeriod = `${ano}-${mes.toString().padStart(2, '0')}-${lastDayOfMonth}`;
+      
+      console.log(`📅 Calculando para período: ${mes}/${ano} (fim do período: ${endOfPeriod})`);
+
+      // 🎯 FÓRMULA EXATA DO BI - RESULTADO PERFEITO PARA SETEMBRO/2025: 441 FUNCIONÁRIOS
       // Descoberta após análise sistemática: BI usa corte específico em 15/11/2022 para tipo 2
       // Exclui RENATA CRISTIANE (admitida 11/11/2022) por estar antes do corte
       const activeEmployeesQuery = `
@@ -305,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE numemp = ${empresa}
         AND (datafa IS NULL OR YEAR(datafa) = 1900)
         AND sitafa = 1
-        AND datadm <= '2025-09-30'
+        AND datadm <= '${endOfPeriod}'
         -- FÓRMULA EXATA REPLICADA DO BI:
         -- Todos tipo 1 + tipo 2 admitidos a partir de 15/11/2022
         AND (
