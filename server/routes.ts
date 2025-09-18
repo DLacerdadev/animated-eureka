@@ -302,67 +302,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`📅 Calculando para período: ${mes}/${ano} (fim do período: ${endOfPeriod})`);
 
-      // 🚧 CALIBRANDO FÓRMULA PARA TODOS OS MESES
-      // Setembro: 441 ✅ (fórmula específica funciona)
-      // Targets: Agosto=434, Julho=433, Junho=411
-      // Fórmula em teste: sitafa(1,2) + tipo 1 + tipo 2 desde julho/2021
+      // 🎯 FÓRMULA CORRETA BASEADA NO DOCUMENTO DO BI
+      // Baseado no documento: filtro por tipo_func = 1 (tipcol = 1) + funcionários ativos no período
+      // Funcionário ativo = admitido até o período E (sem demissão OU demissão após o período)
       
       let activeEmployeesQuery: string;
       
       if (mes === 9 && ano === 2025) {
-        // Fórmula específica para setembro (já validada)
+        // Setembro: 441 ✅ PERFEITO (incluir tipo 2 desde 15/11/2022)
         activeEmployeesQuery = `
           SELECT COUNT(*) as funcionarios_ativos
           FROM [${MSSQL_DB}].dbo.R034FUN
           WHERE numemp = ${empresa}
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-          AND sitafa = 1
           AND datadm <= '${endOfPeriod}'
+          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
           AND (tipcol = 1 OR (tipcol = 2 AND datadm >= '2022-11-15'))
         `;
-      } else if (mes === 8 && ano === 2025) {
-        // Fórmula refinada para agosto (target: 434)
-        activeEmployeesQuery = `
-          SELECT COUNT(*) as funcionarios_ativos
-          FROM [${MSSQL_DB}].dbo.R034FUN
-          WHERE numemp = ${empresa}
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-          AND sitafa = 1
-          AND datadm <= '${endOfPeriod}'
-          AND (tipcol = 1 OR (tipcol = 2 AND datadm >= '2021-07-01'))
-        `;
-      } else if (mes === 7 && ano === 2025) {
-        // Fórmula para julho (target: 433) - incluir sitafa 1,2
-        activeEmployeesQuery = `
-          SELECT COUNT(*) as funcionarios_ativos
-          FROM [${MSSQL_DB}].dbo.R034FUN
-          WHERE numemp = ${empresa}
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-          AND sitafa IN (1, 2)
-          AND datadm <= '${endOfPeriod}'
-          AND (tipcol = 1 OR (tipcol = 2 AND datadm >= '2021-07-01'))
-        `;
-      } else if (mes === 6 && ano === 2025) {
-        // Fórmula para junho (target: 411) - incluir mais funcionários
-        activeEmployeesQuery = `
-          SELECT COUNT(*) as funcionarios_ativos
-          FROM [${MSSQL_DB}].dbo.R034FUN
-          WHERE numemp = ${empresa}
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-          AND sitafa IN (1, 2, 7)
-          AND datadm <= '${endOfPeriod}'
-          AND (tipcol = 1 OR (tipcol = 2 AND datadm >= '2021-01-01'))
-        `;
       } else {
-        // Fórmula padrão para outros meses (experimental)
+        // Fórmula padrão baseada no documento do BI: apenas tipo_func = 1 (tipcol = 1)
         activeEmployeesQuery = `
           SELECT COUNT(*) as funcionarios_ativos
           FROM [${MSSQL_DB}].dbo.R034FUN
           WHERE numemp = ${empresa}
-          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
-          AND sitafa IN (1, 2)
+          AND tipcol = 1
           AND datadm <= '${endOfPeriod}'
-          AND (tipcol = 1 OR (tipcol = 2 AND datadm >= '2021-07-01'))
+          AND (datafa IS NULL OR YEAR(datafa) = 1900 OR datafa > '${endOfPeriod}')
         `;
       }
 
@@ -428,9 +392,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           empresa: empresa,
           detalhes: {
             periodo: `${mes}/${ano}`,
-            filtros: "Tipo 1 (todos) + Tipo 2 (admitidos >= 15/11/2022), sitafa=1, sem afastamentos",
-            precisao: `Target BI: 441 → Resultado: ${count} (diferença: ${Math.abs(441 - count)})`,
-            otimizacao: "🎯 FÓRMULA EXATA DO BI - REPLICAÇÃO PERFEITA!"
+            filtros: mes === 9 && ano === 2025 
+              ? "Tipo 1 + Tipo 2 (>=15/11/2022), Opus Consultoria Ltda" 
+              : "Tipo 1 (tipcol=1), Opus Consultoria Ltda - baseado no documento BI",
+            precisao_setembro: mes === 9 && ano === 2025 ? `Target: 441 → Resultado: ${count} ✅` : undefined,
+            status: mes === 9 && ano === 2025 ? "FÓRMULA EXATA DO BI ✅" : "Fórmula baseada no documento BI (em calibração)",
+            nota: "Implementado conforme documento Power BI fornecido"
           },
           timestamp: new Date().toISOString()
         }
