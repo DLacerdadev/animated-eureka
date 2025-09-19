@@ -636,30 +636,49 @@ router.get('/estatisticas', async (req, res) => {
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
       // Query corrigida - removendo codccu da DISTINCT e sempre calculando contratações/demissões
-      // Definir escopos de empresas baseado na descoberta do BI
-      const empresasAtivos = empresas && empresas !== '' ? empresas : '1,6'; // Match com BI: 3.348 vs 3.304
-      const empresasContratacoes = empresas && empresas !== '' ? empresas : '1,3,6,8,9,10,11,12'; // Match com BI: 4.305 vs 4.194
+      // Definir escopos de empresas baseado na descoberta do BI (SANITIZADO)
+      const empresasAtivosDefault = [1, 6]; // Match com BI: 3.348 vs 3.304
+      const empresasContratacaoDefault = [1, 3, 6, 8, 9, 10, 11, 12]; // Match com BI: 4.305 vs 4.194
+      
+      let empresasAtivosList, empresasContratacoesList;
+      
+      if (empresas && empresas !== '') {
+        // Sanitizar entrada do usuário - apenas números válidos
+        const empresasSanitizadas = empresas.split(',')
+          .filter(e => e.trim() !== '')
+          .map(e => parseInt(e.trim()))
+          .filter(emp => !isNaN(emp) && emp > 0 && emp <= 999); // Validação robusta
+        
+        empresasAtivosList = empresasSanitizadas;
+        empresasContratacoesList = empresasSanitizadas;
+      } else {
+        empresasAtivosList = empresasAtivosDefault;
+        empresasContratacoesList = empresasContratacaoDefault;
+      }
+      
+      const empresasAtivos = empresasAtivosList.join(',');
+      const empresasContratacoes = empresasContratacoesList.join(',');
       
       const realQuery = `
         SELECT 
-          COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, numcpf)) as total_funcionarios,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND numemp IN (${empresasAtivos}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ativos,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND sitafa = 7 AND numemp IN (${empresasAtivos}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_demitidos,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'M' AND numemp IN (${empresasAtivos}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as masculino,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'F' AND numemp IN (${empresasAtivos}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as feminino,
+          COUNT(DISTINCT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf)) as total_funcionarios,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ativos,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND sitafa = 7 AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as funcionarios_demitidos,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'M' AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as masculino,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'F' AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as feminino,
           ROUND(AVG(CASE WHEN TIPCOL IN (1,3,5) AND numemp IN (${empresasAtivos}) THEN CAST(valsal as decimal) END), 2) as salario_medio,
           ${months && years ? `
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, EOMONTH(DATEFROMPARTS(${year}, ${month}, 1))) AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND MONTH(datadm) = ${month} AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND MONTH(datafa) = ${month} AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, EOMONTH(DATEFROMPARTS(${year}, ${month}, 1))) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND MONTH(datadm) = ${month} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND MONTH(datafa) = ${month} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
           ` : years && years !== '' ? `
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, DATEFROMPARTS(${year}, 12, 31)) AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, DATEFROMPARTS(${year}, 12, 31)) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
           ` : `
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = YEAR(GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = YEAR(GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = YEAR(GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = YEAR(GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
           `}
         FROM [${MSSQL_DB}].dbo.r034fun
         ${whereClause}
