@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICards } from "@/components/dashboard/kpi-cards";
 import { TurnoverChart } from "@/components/dashboard/turnover-chart";
-import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock, Calendar } from "lucide-react";
+import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock, Calendar, Filter, Sparkles, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 const recentActivities = [
   {
@@ -55,105 +57,180 @@ export function OverviewSection() {
   const years = [2023, 2024, 2025];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Filtros de Período */}
-      <Card data-testid="period-filters">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Período de Análise
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <div className="flex flex-col space-y-2">
-              <label className="text-sm font-medium">Mês</label>
-              <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                <SelectTrigger className="w-40" data-testid="select-month">
-                  <SelectValue placeholder="Selecione o mês" />
-                </SelectTrigger>
-                <SelectContent>
-                  {months.map((month) => (
-                    <SelectItem key={month.value} value={month.value.toString()}>
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col space-y-2">
-              <label className="text-sm font-medium">Ano</label>
-              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                <SelectTrigger className="w-32" data-testid="select-year">
-                  <SelectValue placeholder="Selecione o ano" />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
+      {/* Header Section */}
+      <div className="bg-white border-b border-gray-200/80 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-3">
+                <Sparkles className="h-8 w-8 text-blue-500" />
+                Dashboard RH
+              </h1>
+              <p className="text-gray-600 mt-1 font-medium">Visão em tempo real dos seus indicadores de recursos humanos</p>
+            </motion.div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* KPI Cards */}
-      <KPICards selectedMonth={selectedMonth} selectedYear={selectedYear} />
-      
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Turnover Chart */}
-        <TurnoverChart />
-        
-        {/* Demographics Chart */}
-        <Card data-testid="chart-demographics">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Demografia por Faixa Etária</CardTitle>
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <ChartPie className="h-16 w-16 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">Gráfico Demográfico</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Dados serão carregados via API Senior
-                </p>
+          
+          {/* Período Filters */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-2xl border border-blue-200/50"
+            data-testid="period-filters"
+          >
+            <div className="flex items-center gap-2 text-blue-700">
+              <Filter className="h-4 w-4" />
+              <span className="text-sm font-semibold">Filtros:</span>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex flex-col space-y-1">
+                <label className="text-xs font-semibold text-blue-700">Mês</label>
+                <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+                  <SelectTrigger className="w-36 h-8 bg-white border-blue-200 text-sm" data-testid="select-month">
+                    <SelectValue placeholder="Mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {months.map((month) => (
+                      <SelectItem key={month.value} value={month.value.toString()}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col space-y-1">
+                <label className="text-xs font-semibold text-blue-700">Ano</label>
+                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                  <SelectTrigger className="w-24 h-8 bg-white border-blue-200 text-sm" data-testid="select-year">
+                    <SelectValue placeholder="Ano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </motion.div>
+        </div>
       </div>
+
+      <div className="p-6 space-y-8">
+
+        {/* KPI Cards */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <KPICards selectedMonth={selectedMonth} selectedYear={selectedYear} />
+        </motion.div>
       
-      {/* Recent Activity */}
-      <Card data-testid="recent-activity">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Atividades Recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentActivities.map((activity) => {
-              const Icon = activity.icon;
-              return (
-                <div key={activity.id} className="flex items-start space-x-3" data-testid={`activity-${activity.id}`}>
-                  <div className={`w-8 h-8 bg-${activity.color} rounded-full flex items-center justify-center flex-shrink-0`}>
-                    <Icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">{activity.title}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
+        {/* Charts Row */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+        >
+          {/* Turnover Chart */}
+          <TurnoverChart />
+          
+          {/* Demographics Chart */}
+          <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0" data-testid="chart-demographics">
+            <div className="h-2 bg-gradient-to-r from-purple-500 to-pink-500" />
+            <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                  <ChartPie className="h-5 w-5 text-white" />
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <CardTitle className="text-lg font-bold text-gray-800">Demografia por Faixa Etária</CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" className="hover:bg-white/50">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-64 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl flex items-center justify-center border border-purple-100">
+                <div className="text-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4"
+                  >
+                    <ChartPie className="h-8 w-8 text-white" />
+                  </motion.div>
+                  <p className="text-gray-700 font-semibold text-lg">Gráfico Demográfico</p>
+                  <p className="text-sm text-gray-500 mt-2 font-medium">
+                    Dados serão carregados via API Senior
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+        >
+          <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0" data-testid="recent-activity">
+            <div className="h-2 bg-gradient-to-r from-green-500 to-blue-500" />
+            <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center">
+                  <Activity className="h-5 w-5 text-white" />
+                </div>
+                <CardTitle className="text-lg font-bold text-gray-800">Atividades Recentes</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {recentActivities.map((activity, index) => {
+                  const Icon = activity.icon;
+                  const colorMap = {
+                    "chart-1": "from-blue-500 to-blue-600",
+                    "chart-5": "from-red-500 to-red-600", 
+                    "chart-3": "from-yellow-500 to-yellow-600"
+                  };
+                  
+                  return (
+                    <motion.div 
+                      key={activity.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className="flex items-start space-x-4 p-4 rounded-2xl bg-gradient-to-r from-gray-50 to-white hover:from-white hover:to-gray-50 border border-gray-100 hover:border-gray-200 transition-all duration-200"
+                      data-testid={`activity-${activity.id}`}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md",
+                        `bg-gradient-to-r ${colorMap[activity.color as keyof typeof colorMap]}`
+                      )}>
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 leading-relaxed">{activity.title}</p>
+                        <p className="text-xs text-gray-500 font-medium mt-1">{activity.time}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 }

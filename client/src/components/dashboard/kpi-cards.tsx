@@ -1,8 +1,9 @@
 import { useKPIData, useActiveEmployees } from "@/hooks/use-senior-api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserPlus, UserMinus, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { Users, UserPlus, UserMinus, Clock, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat('pt-BR').format(num);
@@ -70,7 +71,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
       subtitle: activeEmployees?.fonte ? `Fonte: ${activeEmployees.fonte.includes('R034FUN') ? 'R034FUN' : 'r350adm'}` : '',
       icon: Users,
       trend: kpiData?.trends.employees || 5.2,
-      color: "chart-1",
+      color: "from-blue-500 to-blue-600",
+      bgColor: "bg-gradient-to-r from-blue-50 to-blue-100",
+      iconBg: "bg-gradient-to-r from-blue-500 to-blue-600",
     },
     {
       title: "Contratações",
@@ -78,7 +81,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
       subtitle: `Período: ${selectedMonth}/${selectedYear}`,
       icon: UserPlus,
       trend: hires > 0 ? 100 : 0,
-      color: "chart-2",
+      color: "from-emerald-500 to-emerald-600",
+      bgColor: "bg-gradient-to-r from-emerald-50 to-emerald-100",
+      iconBg: "bg-gradient-to-r from-emerald-500 to-emerald-600",
     },
     {
       title: "Desligamentos",
@@ -86,7 +91,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
       subtitle: `Período: ${selectedMonth}/${selectedYear}`,
       icon: UserMinus,
       trend: terminations > 0 ? -100 : 0,
-      color: "chart-5",
+      color: "from-red-500 to-red-600",
+      bgColor: "bg-gradient-to-r from-red-50 to-red-100",
+      iconBg: "bg-gradient-to-r from-red-500 to-red-600",
     },
     {
       title: "Horas Extra",
@@ -94,7 +101,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
       subtitle: "Dados em integração",
       icon: Clock,
       trend: kpiData?.trends.overtime || 12.4,
-      color: "chart-5",
+      color: "from-purple-500 to-purple-600",
+      bgColor: "bg-gradient-to-r from-purple-50 to-purple-100",
+      iconBg: "bg-gradient-to-r from-purple-500 to-purple-600",
     },
   ];
 
@@ -106,40 +115,61 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsPro
         const TrendIcon = isPositive ? TrendingUp : TrendingDown;
         
         return (
-          <Card key={index} data-testid={`kpi-card-${index}`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {kpi.title}
-                  </p>
-                  <p className="text-2xl font-bold text-foreground" data-testid={`kpi-value-${index}`}>
-                    {kpi.value}
-                  </p>
-                  {kpi.subtitle && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {kpi.subtitle}
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.1 }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+          >
+            <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group" data-testid={`kpi-card-${index}`}>
+              <div className={cn("h-2", kpi.iconBg)} />
+              <CardContent className={cn("p-6 relative", kpi.bgColor)}>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-sm font-semibold text-gray-700">
+                        {kpi.title}
+                      </p>
+                      {totalEmployees > 400 && index === 0 && (
+                        <Sparkles className="w-3 h-3 text-yellow-500" />
+                      )}
+                    </div>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-2" data-testid={`kpi-value-${index}`}>
+                      {kpi.value}
                     </p>
-                  )}
+                    {kpi.subtitle && (
+                      <p className="text-xs text-gray-600 font-medium">
+                        {kpi.subtitle}
+                      </p>
+                    )}
+                  </div>
+                  <div className={cn(
+                    "w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300",
+                    kpi.iconBg
+                  )}>
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
                 </div>
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                  `bg-${kpi.color}`
-                )}>
-                  <Icon className="h-5 w-5 text-white" />
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/20">
+                  <div className={cn(
+                    "flex items-center px-3 py-1 rounded-full text-xs font-semibold",
+                    isPositive 
+                      ? "bg-emerald-100 text-emerald-700" 
+                      : "bg-red-100 text-red-700"
+                  )}>
+                    <TrendIcon className="w-3 h-3 mr-1" />
+                    <span data-testid={`kpi-trend-${index}`}>
+                      {Math.abs(kpi.trend).toFixed(1)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium">
+                    vs mês anterior
+                  </p>
                 </div>
-              </div>
-              <p className={cn(
-                "text-xs mt-2 flex items-center",
-                isPositive ? "text-chart-2" : "text-destructive"
-              )}>
-                <TrendIcon className="w-3 h-3 mr-1" />
-                <span data-testid={`kpi-trend-${index}`}>
-                  {Math.abs(kpi.trend).toFixed(1)}% vs mês anterior
-                </span>
-              </p>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
         );
       })}
     </div>
