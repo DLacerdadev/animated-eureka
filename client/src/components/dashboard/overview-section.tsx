@@ -52,6 +52,32 @@ export function OverviewSection() {
   const { data: divisions, isLoading: loadingDivisions } = useDivisions();
   const { data: employeeStatus, isLoading: loadingStatus } = useEmployeeStatus();
 
+  // IDs das 7 empresas padrão (conforme backend)
+  const empresasPadrao = ['1', '6', '8', '9', '10', '11', '13'];
+  
+  // Inicializar selectedEmpresa com todas as 7 empresas quando os dados carregarem
+  useEffect(() => {
+    if (companies && companies.length > 0 && selectedEmpresa.length === 0) {
+      const empresasDisponiveis = companies
+        .filter(company => empresasPadrao.includes(company.id))
+        .map(company => company.id);
+      
+      if (empresasDisponiveis.length > 0) {
+        setSelectedEmpresa(empresasDisponiveis);
+      }
+    }
+  }, [companies, selectedEmpresa.length]);
+  
+  // Função para verificar se está usando todas as empresas padrão
+  const isUsingAllCompanies = () => {
+    if (!companies) return false;
+    const empresasDisponiveis = companies
+      .filter(company => empresasPadrao.includes(company.id))
+      .map(company => company.id);
+    return empresasDisponiveis.length === selectedEmpresa.length &&
+           empresasDisponiveis.every(id => selectedEmpresa.includes(id));
+  };
+
   // Multi-select options
   const monthOptions: MultiSelectOption[] = [
     { value: "1", label: "Janeiro" },
@@ -95,7 +121,7 @@ export function OverviewSection() {
   
   // No default selections - user must choose what to filter by
   
-  // Create filter query params for API - only include when values are selected
+  // Create filter query params for API - only include when values differ from defaults
   const filterParams: Record<string, string> = {};
   
   if (selectedMonths.length > 0) {
@@ -104,7 +130,8 @@ export function OverviewSection() {
   if (selectedYears.length > 0) {
     filterParams.years = selectedYears.join(',');
   }
-  if (selectedEmpresa.length > 0) {
+  // Só enviar empresas se for diferente do padrão de todas as 7 empresas
+  if (selectedEmpresa.length > 0 && !isUsingAllCompanies()) {
     filterParams.empresas = selectedEmpresa.join(',');
   }
   if (selectedStatus.length > 0 && !selectedStatus.includes('todos')) {
@@ -160,9 +187,16 @@ export function OverviewSection() {
                   onClick={() => {
                     setSelectedStatus([]);
                     setSelectedDivisao([]);
-                    setSelectedEmpresa([]);
                     setSelectedMonths([]);
                     setSelectedYears([]);
+                    
+                    // Resetar empresas para as 7 padrão
+                    if (companies) {
+                      const empresasDisponiveis = companies
+                        .filter(company => empresasPadrao.includes(company.id))
+                        .map(company => company.id);
+                      setSelectedEmpresa(empresasDisponiveis);
+                    }
                   }}
                   className="text-gray-600 hover:text-gray-900 w-fit"
                 >
@@ -209,10 +243,21 @@ export function OverviewSection() {
                 
                 {/* Empresa */}
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Building className="h-4 w-4 text-gray-600" />
-                    <label className="text-sm font-semibold text-gray-800">Empresa</label>
-                    {loadingCompanies && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-gray-600" />
+                      <label className="text-sm font-semibold text-gray-800">Empresa</label>
+                      {loadingCompanies && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      isUsingAllCompanies() 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {isUsingAllCompanies() 
+                        ? `Todas (${selectedEmpresa.length})` 
+                        : `${selectedEmpresa.length} selecionada(s)`}
+                    </div>
                   </div>
                   <MultiSelect
                     options={empresaOptions}
@@ -221,8 +266,13 @@ export function OverviewSection() {
                     placeholder="Selecionar empresas..."
                     className="w-full h-10"
                     disabled={loadingCompanies}
-                    maxSelected={3}
+                    maxSelected={7}
                   />
+                  {isUsingAllCompanies() && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      ✓ Usando todas as empresas padrão para relatórios completos
+                    </p>
+                  )}
                 </div>
               </div>
               
