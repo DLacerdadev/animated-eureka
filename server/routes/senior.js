@@ -24,6 +24,211 @@ function logRequest(query, success = true, additionalInfo = {}) {
   console.log(`${timestamp} [express] POST /api/senior/execute-query ${success ? '200' : '401'} in ${Math.random() * 10 | 0}ms :: query=${query}${Object.keys(additionalInfo).length > 0 ? ` :: ${Object.entries(additionalInfo).map(([k, v]) => `${k}=${v}`).join(' ')}` : ''}`);
 }
 
+// GET endpoint to analyze duplicates in r034fun
+router.get('/analyze-duplicates', async (req, res) => {
+  try {
+    console.log('🔍 Analisando possíveis duplicações na tabela r034fun...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || "opus_hcm_221123";
+
+    if (!SENIOR_API_KEY) {
+      return res.status(401).json({
+        success: false,
+        error: 'API key não configurada'
+      });
+    }
+
+    // Query para investigar duplicações nas 7 empresas com filtros 2025
+    const duplicateAnalysisQuery = `
+      -- ANÁLISE DE DUPLICAÇÕES E CONTAGENS
+      SELECT 
+        -- 1. Contagem SEM DISTINCT (total de registros)
+        (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r034fun 
+         WHERE numemp IN (1,6,8,9,10,11,13) 
+         AND TIPCOL IN (1,3,5) 
+         AND YEAR(datadm) = 2025) as total_registros_brutos,
+        
+        -- 2. Contagem COM DISTINCT (funcionários únicos)
+        (SELECT COUNT(DISTINCT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf)) 
+         FROM [${MSSQL_DB}].dbo.r034fun 
+         WHERE numemp IN (1,6,8,9,10,11,13) 
+         AND TIPCOL IN (1,3,5) 
+         AND YEAR(datadm) = 2025) as funcionarios_distintos,
+         
+        -- 3. Contagem apenas por CPF (possíveis duplicatas por CPF)
+        (SELECT COUNT(DISTINCT numcpf) FROM [${MSSQL_DB}].dbo.r034fun 
+         WHERE numemp IN (1,6,8,9,10,11,13) 
+         AND TIPCOL IN (1,3,5) 
+         AND YEAR(datadm) = 2025) as cpfs_distintos,
+         
+        -- 4. Contagem apenas por numcad (matrícula)
+        (SELECT COUNT(DISTINCT numcad) FROM [${MSSQL_DB}].dbo.r034fun 
+         WHERE numemp IN (1,6,8,9,10,11,13) 
+         AND TIPCOL IN (1,3,5) 
+         AND YEAR(datadm) = 2025) as matriculas_distintas,
+         
+        -- 5. Funcionários ativos COM DISTINCT (como na query atual)
+        (SELECT COUNT(DISTINCT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf)) 
+         FROM [${MSSQL_DB}].dbo.r034fun 
+         WHERE numemp IN (1,6) 
+         AND TIPCOL IN (1,3,5)
+         AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(2025,1,1))) as ativos_distinct_atual,
+         
+        -- 6. Funcionários ativos SEM DISTINCT
+        (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r034fun 
+         WHERE numemp IN (1,6) 
+         AND TIPCOL IN (1,3,5)
+         AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(2025,1,1))) as ativos_sem_distinct,
+         
+        -- 7. Quantidade de registros com mesmo CPF (detectar duplicatas)
+        (SELECT COUNT(*) FROM (
+           SELECT numcpf, COUNT(*) as qtd_registros
+           FROM [${MSSQL_DB}].dbo.r034fun 
+           WHERE numemp IN (1,6,8,9,10,11,13) 
+           AND TIPCOL IN (1,3,5)
+           GROUP BY numcpf
+           HAVING COUNT(*) > 1
+         ) duplicatas_cpf) as cpfs_com_multiplos_registros,
+         
+        -- 8. Funcionários com múltiplas empresas
+        (SELECT COUNT(*) FROM (
+           SELECT numcpf, COUNT(DISTINCT numemp) as qtd_empresas
+           FROM [${MSSQL_DB}].dbo.r034fun 
+           WHERE numemp IN (1,6,8,9,10,11,13) 
+           AND TIPCOL IN (1,3,5)
+           GROUP BY numcpf
+           HAVING COUNT(DISTINCT numemp) > 1
+         ) multiplas_empresas) as funcionarios_multiplas_empresas,
+         
+        -- 9. Registros históricos (múltiplas datas de admissão para mesmo CPF)
+        (SELECT COUNT(*) FROM (
+           SELECT numcpf, COUNT(DISTINCT datadm) as qtd_admissoes
+           FROM [${MSSQL_DB}].dbo.r034fun 
+           WHERE numemp IN (1,6,8,9,10,11,13) 
+           AND TIPCOL IN (1,3,5)
+           GROUP BY numcpf
+           HAVING COUNT(DISTINCT datadm) > 1
+         ) multiplas_admissoes) as funcionarios_multiplas_admissoes
+    `;
+    
+    console.log('📝 Executando análise de duplicações:', duplicateAnalysisQuery);
+    
+    const response = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SENIOR_API_KEY}`
+      },
+      body: JSON.stringify({ query: duplicateAnalysisQuery })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erro na API Senior: ${response.status}`);
+    }
+    
+    const apiResult = await response.json();
+    const analysis = apiResult?.[0] || {};
+    
+    console.log('📊 Resultado da análise de duplicações:', analysis);
+    
+    // Calcular diferenças
+    const duplicateImpact = {
+      registros_vs_distintos: (analysis.total_registros_brutos || 0) - (analysis.funcionarios_distintos || 0),
+      ativos_inflacao: (analysis.ativos_sem_distinct || 0) - (analysis.ativos_distinct_atual || 0),
+      cpf_vs_chave_composta: (analysis.cpfs_distintos || 0) - (analysis.funcionarios_distintos || 0),
+      possivel_inflacao_pct: analysis.funcionarios_distintos > 0 ? 
+        (((analysis.total_registros_brutos || 0) - (analysis.funcionarios_distintos || 0)) / (analysis.funcionarios_distintos || 0) * 100).toFixed(2) + '%' : '0%'
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        analise_bruta: analysis,
+        impacto_duplicacoes: duplicateImpact,
+        interpretacao: {
+          suspeita_duplicacao: (analysis.total_registros_brutos || 0) > (analysis.funcionarios_distintos || 0),
+          multiplos_cpf_empresas: (analysis.funcionarios_multiplas_empresas || 0) > 0,
+          historico_readmissoes: (analysis.funcionarios_multiplas_admissoes || 0) > 0,
+          recomendacao: duplicateImpact.registros_vs_distintos > 100 ? 
+            'ATENÇÃO: Diferença significativa detectada - possível duplicação' :
+            'Diferença normal - DISTINCT funcionando corretamente'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na análise de duplicações:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro na análise de duplicações',
+      message: error.message
+    });
+  }
+});
+
+// GET endpoint to fetch single employee for analysis
+router.get('/sample-employee', async (req, res) => {
+  try {
+    console.log('🔍 Buscando funcionário único da tabela r034fun para análise...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || "opus_hcm_221123";
+
+    if (!SENIOR_API_KEY) {
+      return res.status(401).json({
+        success: false,
+        error: 'API key não configurada'
+      });
+    }
+
+    // Query para buscar um funcionário único com todos os campos
+    const sampleQuery = `
+      SELECT TOP 1 *
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE numemp IN (1,6,8,9,10,11,13) 
+      AND TIPCOL IN (1,3,5)
+      ORDER BY datadm DESC
+    `;
+    
+    console.log('📝 Executando query para funcionário único:', sampleQuery);
+    
+    const response = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SENIOR_API_KEY}`
+      },
+      body: JSON.stringify({ query: sampleQuery })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erro na API Senior: ${response.status}`);
+    }
+    
+    const apiResult = await response.json();
+    console.log('✅ Funcionário único encontrado:', apiResult?.length || 0, 'registro(s)');
+    
+    res.json({
+      success: true,
+      data: apiResult?.[0] || null,
+      query: sampleQuery
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar funcionário único:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar funcionário único',
+      message: error.message
+    });
+  }
+});
+
 // GET endpoint to fetch all companies
 router.get('/companies', async (req, res) => {
   try {
@@ -661,29 +866,88 @@ router.get('/estatisticas', async (req, res) => {
       const empresasAtivos = empresasAtivosList.join(',');
       const empresasContratacoes = empresasContratacoesList.join(',');
       
+      // 🎯 IMPLEMENTANDO LÓGICA DAX EXATA DO BI
+      // Data de referência para cálculos (usar a data máxima do filtro)
+      const dataReferencia = months && years ? 
+        `EOMONTH(DATEFROMPARTS(${year}, ${month}, 1))` :
+        years && years !== '' ?
+          `DATEFROMPARTS(${year}, 12, 31)` :
+          `GETDATE()`;
+      
       const realQuery = `
+        WITH funcionarios_contratados AS (
+          -- Total de funcionários contratados até a data de referência (equivale à primeira parte da DAX)
+          SELECT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) as chave_funcionario
+          FROM [${MSSQL_DB}].dbo.r034fun
+          WHERE TIPCOL IN (1,3,5) 
+            AND numemp IN (${empresasAtivos})
+            AND datadm <= ${dataReferencia}
+        ),
+        funcionarios_demitidos AS (
+          -- Funcionários demitidos (status_demiss="Demitido" && cod_demiss<>6)
+          -- sitafa=7 = demitido, motafa<>6 = não transferido
+          SELECT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) as chave_funcionario
+          FROM [${MSSQL_DB}].dbo.r034fun
+          WHERE TIPCOL IN (1,3,5) 
+            AND numemp IN (${empresasAtivos})
+            AND sitafa = 7 
+            AND motafa != 6 
+            AND datafa IS NOT NULL 
+            AND datafa != '1900-12-31 00:00:00'
+            AND datafa <= ${dataReferencia}
+        ),
+        funcionarios_transferidos AS (
+          -- Funcionários transferidos (status_demiss="Demitido" && cod_demiss=6)  
+          -- sitafa=7 = demitido, motafa=6 = transferido
+          SELECT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) as chave_funcionario
+          FROM [${MSSQL_DB}].dbo.r034fun
+          WHERE TIPCOL IN (1,3,5) 
+            AND numemp IN (${empresasAtivos})
+            AND sitafa = 7 
+            AND motafa = 6 
+            AND datafa IS NOT NULL 
+            AND datafa != '1900-12-31 00:00:00'
+            AND datafa <= ${dataReferencia}
+        )
         SELECT 
-          COUNT(DISTINCT CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf)) as total_funcionarios,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ativos,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND sitafa = 7 AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as funcionarios_demitidos,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'M' AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as masculino,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'F' AND numemp IN (${empresasAtivos}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as feminino,
-          ROUND(AVG(CASE WHEN TIPCOL IN (1,3,5) AND numemp IN (${empresasAtivos}) THEN CAST(valsal as decimal) END), 2) as salario_medio,
+          COUNT(DISTINCT r.chave_funcionario) as total_funcionarios,
+          
+          -- 🎯 LÓGICA DAX IMPLEMENTADA: Contratados - Demitidos - Transferidos
+          (SELECT COUNT(DISTINCT fc.chave_funcionario) FROM funcionarios_contratados fc) -
+          (SELECT COUNT(DISTINCT fd.chave_funcionario) FROM funcionarios_demitidos fd) -
+          (SELECT COUNT(DISTINCT ft.chave_funcionario) FROM funcionarios_transferidos ft) as funcionarios_ativos_dax,
+          
+          -- Estatísticas auxiliares
+          (SELECT COUNT(DISTINCT fd.chave_funcionario) FROM funcionarios_demitidos fd) as funcionarios_demitidos_dax,
+          (SELECT COUNT(DISTINCT ft.chave_funcionario) FROM funcionarios_transferidos ft) as funcionarios_transferidos_dax,
+          (SELECT COUNT(DISTINCT fc.chave_funcionario) FROM funcionarios_contratados fc) as total_contratados_ate_data,
+          
+          COUNT(DISTINCT CASE WHEN r.tipsex = 'M' THEN r.chave_funcionario END) as masculino,
+          COUNT(DISTINCT CASE WHEN r.tipsex = 'F' THEN r.chave_funcionario END) as feminino,
+          ROUND(AVG(CAST(r.valsal as decimal)), 2) as salario_medio,
+          
+          -- 🔍 DIAGNÓSTICOS DE DUPLICAÇÃO
+          COUNT(CASE WHEN r.TIPCOL IN (1,3,5) AND r.numemp IN (${empresasAtivos}) THEN 1 END) as funcionarios_ativos_sem_distinct,
+          COUNT(DISTINCT r.numcpf) as total_cpfs_unicos,
+          COUNT(DISTINCT r.numcad) as total_matriculas_unicas,
           ${months && years ? `
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, EOMONTH(DATEFROMPARTS(${year}, ${month}, 1))) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND MONTH(datadm) = ${month} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND MONTH(datafa) = ${month} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND r.datadm >= DATEADD(month, -6, EOMONTH(DATEFROMPARTS(${year}, ${month}, 1))) AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND YEAR(r.datadm) = ${year} AND MONTH(r.datadm) = ${month} AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND r.datafa IS NOT NULL AND r.datafa != '1900-12-31 00:00:00' AND YEAR(r.datafa) = ${year} AND MONTH(r.datafa) = ${month} AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as demissoes_periodo
           ` : years && years !== '' ? `
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, DATEFROMPARTS(${year}, 12, 31)) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND r.datadm >= DATEADD(month, -6, DATEFROMPARTS(${year}, 12, 31)) AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND YEAR(r.datadm) = ${year} AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND r.datafa IS NOT NULL AND r.datafa != '1900-12-31 00:00:00' AND YEAR(r.datafa) = ${year} AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as demissoes_periodo
           ` : `
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = YEAR(GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
-          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = YEAR(GETDATE()) AND numemp IN (${empresasContratacoes}) THEN CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND r.datadm >= DATEADD(month, -6, GETDATE()) AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND YEAR(r.datadm) = YEAR(GETDATE()) AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN r.TIPCOL IN (1,3,5) AND r.datafa IS NOT NULL AND r.datafa != '1900-12-31 00:00:00' AND YEAR(r.datafa) = YEAR(GETDATE()) AND r.numemp IN (${empresasContratacoes}) THEN r.chave_funcionario END) as demissoes_periodo
           `}
-        FROM [${MSSQL_DB}].dbo.r034fun
-        ${whereClause}
+        FROM (
+          SELECT *, CONCAT_WS('-', numemp, TIPCOL, numcad, numcpf) as chave_funcionario
+          FROM [${MSSQL_DB}].dbo.r034fun
+          ${whereClause}
+        ) r
       `;
       
       console.log('📝 Executando query real na tabela r034fun:', realQuery);
@@ -710,14 +974,21 @@ router.get('/estatisticas', async (req, res) => {
       // Converter para formato esperado pelo frontend
       const stats = {
         total_funcionarios: (rawStats.total_funcionarios || 0).toString(),
-        funcionarios_ativos: (rawStats.funcionarios_ativos || 0).toString(),
-        funcionarios_demitidos: (rawStats.funcionarios_demitidos || 0).toString(),
+        funcionarios_ativos: (rawStats.funcionarios_ativos_dax || 0).toString(),
+        funcionarios_demitidos: (rawStats.funcionarios_demitidos_dax || 0).toString(),
+        funcionarios_transferidos: (rawStats.funcionarios_transferidos_dax || 0).toString(),
+        total_contratados_ate_data: (rawStats.total_contratados_ate_data || 0).toString(),
         masculino: (rawStats.masculino || 0).toString(),
         feminino: (rawStats.feminino || 0).toString(),
         salario_medio: (rawStats.salario_medio || 0).toString(),
         contratacoes_6meses: (rawStats.contratacoes_6meses || 0).toString(),
         contratacoes_periodo: (rawStats.contratacoes_periodo || 0).toString(),
-        demissoes_periodo: (rawStats.demissoes_periodo || 0).toString()
+        demissoes_periodo: (rawStats.demissoes_periodo || 0).toString(),
+        
+        // 🔍 CAMPOS DE DIAGNÓSTICO DE DUPLICAÇÃO
+        funcionarios_ativos_sem_distinct: (rawStats.funcionarios_ativos_sem_distinct || 0).toString(),
+        total_cpfs_unicos: (rawStats.total_cpfs_unicos || 0).toString(),
+        total_matriculas_unicas: (rawStats.total_matriculas_unicas || 0).toString()
       };
 
       console.log('✅ Estatísticas REAIS da API Senior (tabela r034fun):', stats);

@@ -84,16 +84,18 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     total_funcionarios: 0,
     funcionarios_ativos: 0,
     funcionarios_demitidos: 0,
+    demissoes_periodo: 0,
     masculino: 0,
     feminino: 0,
     salario_medio: 0,
-    contratacoes_6meses: 0
+    contratacoes_6meses: 0,
+    contratacoes_periodo: 0
   };
 
   // Use dados reais de funcionários filtrados
   const totalEmployees = stats.funcionarios_ativos || 0;
-  const hires = stats.contratacoes_6meses || 0;
-  const terminations = stats.funcionarios_demitidos || 0;
+  const hires = stats.contratacoes_periodo || 0; // CORRIGIDO: usar contratacoes_periodo ao invés de 6meses
+  const terminations = stats.demissoes_periodo || 0; // CORRIGIDO: usar demissoes_periodo ao invés de funcionarios_demitidos
   const avgSalary = stats.salario_medio || 0;
 
   // Verificar se há filtros aplicados
@@ -123,7 +125,7 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
       value: formatNumber(hires),
       subtitle: hasFilters
         ? `Filtrado: ${formatNumber(hires)} contratações`
-        : `Últimos 6 meses: ${formatNumber(hires)} admissões`,
+        : `Total do período: ${formatNumber(hires)} admissões`,
       icon: UserPlus,
       trend: hires > 0 ? 100 : 0,
       color: "from-emerald-500 to-emerald-600",
