@@ -80,15 +80,17 @@ router.get('/companies', async (req, res) => {
 // GET endpoint to fetch all divisions
 router.get('/divisions', async (req, res) => {
   try {
-    console.log('🏢 Buscando todas as divisões da API Senior...');
+    console.log('🏢 Buscando todas as divisões...');
+    console.log('🔧 DATABASE_URL disponível:', !!process.env.DATABASE_URL);
     
     const query = `
       SELECT DISTINCT 
-        r013der.codder as codigo_divisao,
-        r013der.desder as descricao_divisao
-      FROM r013der 
-      WHERE r013der.situacao = 1  -- Only active divisions
-      ORDER BY r013der.desder;
+        codigo_divisao,
+        nome_divisao as descricao_divisao,
+        codigo_empresa
+      FROM divisions 
+      WHERE situacao = 1  -- Only active divisions
+      ORDER BY nome_divisao;
     `;
 
     logRequest('divisions', true);
@@ -99,6 +101,7 @@ router.get('/divisions', async (req, res) => {
       id: row.codigo_divisao.toString(),
       codigo: row.codigo_divisao,
       descricao: row.descricao_divisao?.trim() || '',
+      codigo_empresa: row.codigo_empresa,
       label: row.descricao_divisao?.trim() || `Divisão ${row.codigo_divisao}`
     }));
 
@@ -125,22 +128,15 @@ router.get('/divisions', async (req, res) => {
 router.get('/employee-status', async (req, res) => {
   try {
     console.log('👥 Buscando tipos de situação de funcionários...');
+    console.log('🔧 DATABASE_URL disponível:', !!process.env.DATABASE_URL);
     
     const query = `
       SELECT DISTINCT 
-        r034fun.sitafa as codigo_situacao,
-        CASE r034fun.sitafa 
-          WHEN 0 THEN 'Inativo'
-          WHEN 1 THEN 'Ativo'
-          WHEN 2 THEN 'Afastado'
-          WHEN 3 THEN 'Demitido'
-          WHEN 4 THEN 'Aposentado'
-          WHEN 5 THEN 'Licença'
-          ELSE 'Outros'
-        END as descricao_situacao
-      FROM r034fun 
-      WHERE r034fun.sitafa IS NOT NULL
-      ORDER BY r034fun.sitafa;
+        codigo_situacao,
+        descricao_situacao,
+        tipo_situacao
+      FROM employee_status 
+      ORDER BY codigo_situacao;
     `;
 
     logRequest('employee_status', true);
@@ -150,7 +146,9 @@ router.get('/employee-status', async (req, res) => {
     const statuses = result.map(row => ({
       id: row.codigo_situacao.toString(),
       codigo: row.codigo_situacao,
-      label: row.descricao_situacao
+      descricao: row.descricao_situacao?.trim() || '',
+      tipo: row.tipo_situacao?.trim() || '',
+      label: row.descricao_situacao?.trim() || `Status ${row.codigo_situacao}`
     }));
 
     // Add "All" option
