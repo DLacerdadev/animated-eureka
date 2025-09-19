@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 interface TurnoverChartProps {
   selectedMonth?: number;
   selectedYear?: number;
+  selectedEmpresa?: string;
 }
 
-export function TurnoverChart({ selectedMonth = 9, selectedYear = 2025 }: TurnoverChartProps) {
+export function TurnoverChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1" }: TurnoverChartProps) {
   const { data: turnoverData, isLoading, error } = useTurnoverChart(selectedYear, selectedMonth);
 
   // Se não há dados ou está carregando, mostrar estado de loading ou erro

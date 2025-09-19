@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICards } from "@/components/dashboard/kpi-cards";
 import { TurnoverChart } from "@/components/dashboard/turnover-chart";
+import { GenderChart } from "@/components/dashboard/gender-chart";
+import { TenureChart } from "@/components/dashboard/tenure-chart";
+import { DivisionChart } from "@/components/dashboard/division-chart";
 import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock, Calendar, Filter, Sparkles, Activity, Building, Users, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -247,7 +250,7 @@ export function OverviewSection() {
           <KPICards selectedMonth={selectedMonth} selectedYear={selectedYear} />
         </motion.div>
       
-        {/* Charts Row */}
+        {/* Charts Grid - Main Charts Row */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -255,40 +258,40 @@ export function OverviewSection() {
           className="grid grid-cols-1 lg:grid-cols-2 gap-8"
         >
           {/* Turnover Chart */}
-          <TurnoverChart selectedMonth={selectedMonth} selectedYear={selectedYear} />
+          <TurnoverChart 
+            selectedMonth={selectedMonth} 
+            selectedYear={selectedYear} 
+            selectedEmpresa={selectedEmpresa}
+          />
           
-          {/* Demographics Chart */}
-          <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0" data-testid="chart-demographics">
-            <div className="h-2 bg-gradient-to-r from-purple-500 to-pink-500" />
-            <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                  <ChartPie className="h-5 w-5 text-white" />
-                </div>
-                <CardTitle className="text-lg font-bold text-gray-800">Demografia por Faixa Etária</CardTitle>
-              </div>
-              <Button variant="ghost" size="sm" className="hover:bg-white/50">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="h-64 bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl flex items-center justify-center border border-purple-100">
-                <div className="text-center">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4"
-                  >
-                    <ChartPie className="h-8 w-8 text-white" />
-                  </motion.div>
-                  <p className="text-gray-700 font-semibold text-lg">Gráfico Demográfico</p>
-                  <p className="text-sm text-gray-500 mt-2 font-medium">
-                    Dados serão carregados via API Senior
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Gender Demographics Chart */}
+          <GenderChart 
+            selectedMonth={selectedMonth} 
+            selectedYear={selectedYear} 
+            selectedEmpresa={selectedEmpresa}
+          />
+        </motion.div>
+        
+        {/* Charts Grid - Second Row */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+        >
+          {/* Tenure Chart */}
+          <TenureChart 
+            selectedMonth={selectedMonth} 
+            selectedYear={selectedYear} 
+            selectedEmpresa={selectedEmpresa}
+          />
+          
+          {/* Division Chart */}
+          <DivisionChart 
+            selectedMonth={selectedMonth} 
+            selectedYear={selectedYear} 
+            selectedEmpresa={selectedEmpresa}
+          />
         </motion.div>
       
         {/* Recent Activity */}
