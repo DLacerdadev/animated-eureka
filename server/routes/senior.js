@@ -595,25 +595,25 @@ router.get('/estatisticas', async (req, res) => {
           console.log('🏢 Aplicando filtro de empresas:', empresasList);
         }
       } else {
-        // Por padrão, incluir todas as empresas para alinhar com BI do usuário
-        const todasEmpresas = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
-        whereConditions.push(`numemp IN (${todasEmpresas.join(',')})`);
-        console.log('🏢 Aplicando filtro padrão (todas as empresas):', todasEmpresas);
+        // Por padrão, incluir apenas as empresas que realmente existem (descobertas na estrutura real)
+        const empresasReais = [1,2,3,4,5,6,7,8,9,10,11,12,13];
+        whereConditions.push(`numemp IN (${empresasReais.join(',')})`);
+        console.log('🏢 Aplicando filtro padrão (empresas reais):', empresasReais);
       }
       
       // Construir cláusula WHERE
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
-      // Query corrigida usando campos reais descobertos na investigação da tabela r034fun
+      // Query corrigida usando PK correta baseada no documento do usuário da folha
       const realQuery = `
         SELECT 
-          COUNT(*) as total_funcionarios,
-          COUNT(CASE WHEN sitafa = 1 THEN 1 END) as funcionarios_ativos,
-          COUNT(CASE WHEN sitafa = 7 THEN 1 END) as funcionarios_demitidos,
-          COUNT(CASE WHEN tipsex = 'M' THEN 1 END) as masculino,
-          COUNT(CASE WHEN tipsex = 'F' THEN 1 END) as feminino,
+          COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as total_funcionarios,
+          COUNT(DISTINCT CASE WHEN sitafa = 1 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_ativos,
+          COUNT(DISTINCT CASE WHEN sitafa = 7 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_demitidos,
+          COUNT(DISTINCT CASE WHEN tipsex = 'M' THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as masculino,
+          COUNT(DISTINCT CASE WHEN tipsex = 'F' THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as feminino,
           ROUND(AVG(CAST(valsal as decimal)), 2) as salario_medio,
-          COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
+          COUNT(DISTINCT CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as contratacoes_6meses
         FROM [${MSSQL_DB}].dbo.r034fun
         ${whereClause}
       `;
