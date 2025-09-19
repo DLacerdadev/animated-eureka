@@ -2,8 +2,8 @@ import express from 'express';
 import { neon } from '@neondatabase/serverless';
 const router = express.Router();
 
-// Connection configuration
-const sql = neon(`postgresql://${process.env.MSSQL_USER}:${process.env.MSSQL_PASS}@${process.env.MSSQL_HOST}:${process.env.MSSQL_PORT}/${process.env.MSSQL_DB}?sslmode=require`);
+// Connection configuration - using PostgreSQL database
+const sql = neon(process.env.DATABASE_URL);
 
 // Helper function to generate Senior API requests
 function createSeniorApiRequest(service, method, parameters = {}) {
@@ -27,21 +27,23 @@ function logRequest(query, success = true, additionalInfo = {}) {
 // GET endpoint to fetch all companies
 router.get('/companies', async (req, res) => {
   try {
-    console.log('🏢 Buscando todas as empresas da API Senior...');
+    console.log('🏢 Buscando todas as empresas...');
+    console.log('🔧 DATABASE_URL disponível:', !!process.env.DATABASE_URL);
     
-    // Query to get all companies from Senior API
+    // Query to get all companies
     const query = `
       SELECT DISTINCT 
-        r034emp.numemp as codigo_empresa,
-        r034emp.razaosoc as razao_social,
-        r034emp.nomfan as nome_fantasia,
-        r034emp.cnpj as cnpj,
-        r034emp.situacao as situacao
-      FROM r034emp 
-      WHERE r034emp.situacao = 1  -- Only active companies
-      ORDER BY r034emp.numemp;
+        codigo_empresa,
+        razao_social,
+        nome_fantasia,
+        cnpj,
+        situacao
+      FROM companies 
+      WHERE situacao = 1  -- Only active companies
+      ORDER BY codigo_empresa;
     `;
 
+    console.log('📝 Executando query:', query.trim());
     logRequest('companies', true);
     
     const result = await sql(query);
