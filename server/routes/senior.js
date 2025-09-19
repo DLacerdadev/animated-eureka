@@ -781,6 +781,88 @@ router.get('/divisoes-dados', async (req, res) => {
   }
 });
 
+// GET endpoint para investigar empresas reais na base de dados
+router.get('/investigar-empresas-reais', async (req, res) => {
+  try {
+    console.log('🔍 Investigando empresas reais na base r034fun...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
+    
+    if (!SENIOR_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'SENIOR_API_KEY não configurada'
+      });
+    }
+
+    // Investigar empresas que realmente existem na r034fun
+    const queryEmpresasReais = `
+      SELECT 
+        numemp,
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, numcpf)) as total_funcionarios,
+        COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ativos,
+        COUNT(DISTINCT CASE WHEN datafa IS NULL OR datafa = '1900-12-31 00:00:00' THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ainda_ativos
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE (datadm <= DATEFROMPARTS(2025,1,31)) 
+      AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa > DATEFROMPARTS(2025,1,31))
+      GROUP BY numemp
+      ORDER BY numemp
+    `;
+
+    // Verificar especificamente empresa 4
+    const queryEmpresa4 = `
+      SELECT 
+        COUNT(*) as total_registros,
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, numcpf)) as funcionarios_unicos,
+        COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ativos,
+        MIN(datadm) as primeira_admissao,
+        MAX(datadm) as ultima_admissao,
+        COUNT(CASE WHEN datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' THEN 1 END) as com_demissao,
+        COUNT(CASE WHEN datafa IS NULL OR datafa = '1900-12-31 00:00:00' THEN 1 END) as sem_demissao
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE numemp = 4
+    `;
+
+    console.log('📝 Executando investigações...');
+    
+    const promises = [
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryEmpresasReais }),
+      }),
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryEmpresa4 }),
+      })
+    ];
+
+    const responses = await Promise.all(promises);
+    const results = await Promise.all(responses.map(r => r.json()));
+
+    console.log('🔍 Resultados das investigações:', results);
+
+    res.json({
+      success: true,
+      data: {
+        empresas_com_funcionarios_janeiro: results[0],
+        detalhes_empresa_4: results[1]
+      },
+      observacoes: {
+        objetivo: "Descobrir quais empresas realmente existem e por que empresa 4 retorna zeros",
+        problema: "Empresa 4 está retornando todos os valores zerados nos filtros"
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao investigar empresas:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET endpoint para investigar valores de sitafa e TIPCOL em Janeiro
 router.get('/investigar-campos-janeiro', async (req, res) => {
   try {
