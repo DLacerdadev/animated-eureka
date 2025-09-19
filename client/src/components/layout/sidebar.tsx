@@ -4,19 +4,20 @@ import {
   ChartPie, 
   TrendingUp, 
   Users, 
-  DollarSign, 
+  UserPlus,
   UserX, 
   RotateCcw, 
-  Watch, 
+  Calendar, 
   Clock, 
   CalendarX, 
-  File, 
-  Handshake, 
-  Filter, 
-  Settings,
-  X
+  Building2, 
+  DollarSign,
+  X,
+  Sparkles,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -24,27 +25,15 @@ interface SidebarProps {
 }
 
 const navigationItems = [
-  {
-    title: "Dashboard",
-    items: [
-      { icon: TrendingUp, label: "Visão Geral", href: "/", section: "overview" },
-    ],
-  },
-  {
-    title: "Módulos",
-    items: [
-      { icon: DollarSign, label: "Folha", href: "/folha", section: "folha" },
-      { icon: Users, label: "Pessoas", href: "/pessoas", section: "pessoas" },
-      { icon: ChartPie, label: "Demografia", href: "/demografia", section: "demografia" },
-      { icon: UserX, label: "Desligamentos", href: "/desligamentos", section: "desligamentos" },
-      { icon: RotateCcw, label: "Turnover", href: "/turnover", section: "turnover" },
-      { icon: Watch, label: "Absenteísmo", href: "/absenteismo", section: "absenteismo" },
-      { icon: Clock, label: "Hora Extra", href: "/hora-extra", section: "hora-extra" },
-      { icon: CalendarX, label: "Ausência", href: "/ausencia", section: "ausencia" },
-      { icon: File, label: "eDag", href: "/edag", section: "edag" },
-      { icon: Handshake, label: "CCT", href: "/cct", section: "cct" },
-    ],
-  },
+  { icon: BarChart3, label: "Geral", href: "/", section: "geral", color: "from-blue-500 to-indigo-600" },
+  { icon: UserPlus, label: "Contratações", href: "/contratacoes", section: "contratacoes", color: "from-emerald-500 to-green-600" },
+  { icon: UserX, label: "Desligamentos", href: "/desligamentos", section: "desligamentos", color: "from-red-500 to-rose-600" },
+  { icon: TrendingUp, label: "Turnover", href: "/turnover", section: "turnover", color: "from-orange-500 to-amber-600" },
+  { icon: Building2, label: "Perfil Empresa", href: "/perfil-empresa", section: "perfil-empresa", color: "from-purple-500 to-violet-600" },
+  { icon: DollarSign, label: "Folha", href: "/folha", section: "folha", color: "from-yellow-500 to-orange-600" },
+  { icon: Calendar, label: "Absenteísmo", href: "/absenteismo", section: "absenteismo", color: "from-pink-500 to-rose-600" },
+  { icon: CalendarX, label: "Ausências", href: "/ausencias", section: "ausencias", color: "from-cyan-500 to-blue-600" },
+  { icon: Clock, label: "Horas Extras", href: "/horas-extras", section: "horas-extras", color: "from-teal-500 to-cyan-600" },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -62,87 +51,129 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
       
       {/* Sidebar */}
-      <div 
+      <motion.div 
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 bg-sidebar border-r border-sidebar-border transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 w-80 transition-transform duration-500 ease-out md:relative md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        initial={{ x: -320 }}
+        animate={{ x: isOpen ? 0 : -320 }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
         data-testid="sidebar"
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl">
           {/* Logo/Header */}
-          <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                <ChartPie className="h-4 w-4 text-sidebar-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-sidebar-foreground">Opus Dashboard</h1>
-                <p className="text-xs text-muted-foreground">Senior Integration</p>
-              </div>
+          <div className="relative p-8 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10" />
+            <div className="relative flex items-center justify-between">
+              <motion.div 
+                className="flex items-center space-x-4"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Sparkles className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">opus</h1>
+                  <p className="text-sm text-slate-400 font-medium">Dashboard RH</p>
+                </div>
+              </motion.div>
+              <button 
+                onClick={onClose}
+                className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-all duration-200"
+                data-testid="button-close-sidebar"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <button 
-              onClick={onClose}
-              className="md:hidden p-2 text-muted-foreground hover:text-sidebar-foreground"
-              data-testid="button-close-sidebar"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
           
           {/* Navigation Menu */}
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto" data-testid="nav-menu">
-            {navigationItems.map((group) => (
-              <div key={group.title} className="mb-4">
-                <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {group.title}
-                </h3>
-                <div className="space-y-1">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = location === item.href;
-                    
-                    return (
-                      <Link
-                        key={item.section}
-                        href={item.href}
-                        className={cn(
-                          "flex items-center space-x-3 px-3 py-2 text-sm rounded-lg transition-colors",
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        )}
-                        onClick={() => {
-                          if (window.innerWidth < 768) {
-                            onClose();
-                          }
-                        }}
-                        data-testid={`nav-link-${item.section}`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <nav className="flex-1 p-6 space-y-2 overflow-y-auto" data-testid="nav-menu">
+            <div className="space-y-2">
+              {navigationItems.map((item, index) => {
+                const Icon = item.icon;
+                const isActive = location === item.href;
+                
+                return (
+                  <motion.div
+                    key={item.section}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 + 0.3 }}
+                  >
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "group flex items-center space-x-4 px-4 py-4 text-base rounded-2xl transition-all duration-300 relative overflow-hidden",
+                        isActive
+                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25"
+                          : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                      )}
+                      onClick={() => {
+                        if (window.innerWidth < 768) {
+                          onClose();
+                        }
+                      }}
+                      data-testid={`nav-link-${item.section}`}
+                    >
+                      {/* Background gradient on hover */}
+                      <div className={cn(
+                        "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                        !isActive && `bg-gradient-to-r ${item.color} opacity-10`
+                      )} />
+                      
+                      {/* Icon */}
+                      <div className={cn(
+                        "relative w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300",
+                        isActive 
+                          ? "bg-white/20 text-white" 
+                          : "text-slate-400 group-hover:text-white group-hover:bg-white/10"
+                      )}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      
+                      {/* Label */}
+                      <span className="relative font-semibold">{item.label}</span>
+                      
+                      {/* Active indicator */}
+                      {isActive && (
+                        <motion.div
+                          className="absolute right-3 w-2 h-2 bg-white rounded-full"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        />
+                      )}
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
           </nav>
           
           {/* User Profile */}
-          <div className="p-4 border-t border-sidebar-border">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-sidebar-primary rounded-full flex items-center justify-center">
-                <Users className="h-4 w-4 text-sidebar-primary-foreground" />
+          <motion.div 
+            className="p-6 bg-gradient-to-r from-slate-800 to-slate-700 border-t border-slate-600/50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+          >
+            <div className="flex items-center space-x-4 p-4 bg-slate-900/50 rounded-2xl border border-slate-600/30">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                <Users className="h-6 w-6 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">Admin</p>
-                <p className="text-xs text-muted-foreground truncate">admin@opus.com.br</p>
+                <p className="text-base font-bold text-white truncate">Opus Consultoria</p>
+                <p className="text-sm text-slate-400 truncate font-medium">Sistema RH Senior</p>
               </div>
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
             </div>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KPICards } from "@/components/dashboard/kpi-cards";
 import { TurnoverChart } from "@/components/dashboard/turnover-chart";
-import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock, Calendar, Filter, Sparkles, Activity } from "lucide-react";
+import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock, Calendar, Filter, Sparkles, Activity, Building, Users, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
@@ -38,23 +38,48 @@ const recentActivities = [
 export function OverviewSection() {
   const [selectedMonth, setSelectedMonth] = useState<number>(9); // Setembro
   const [selectedYear, setSelectedYear] = useState<number>(2025);
+  const [selectedStatus, setSelectedStatus] = useState<string>("todos");
+  const [selectedDivisao, setSelectedDivisao] = useState<string>("todos");
+  const [selectedEmpresa, setSelectedEmpresa] = useState<string>("1"); // Opus Consultoria
 
   const months = [
-    { value: 1, label: "Janeiro" },
-    { value: 2, label: "Fevereiro" },
-    { value: 3, label: "Março" },
-    { value: 4, label: "Abril" },
-    { value: 5, label: "Maio" },
-    { value: 6, label: "Junho" },
-    { value: 7, label: "Julho" },
-    { value: 8, label: "Agosto" },
-    { value: 9, label: "Setembro" },
-    { value: 10, label: "Outubro" },
-    { value: 11, label: "Novembro" },
-    { value: 12, label: "Dezembro" },
+    { value: 1, label: "jan", fullLabel: "Janeiro" },
+    { value: 2, label: "fev", fullLabel: "Fevereiro" },
+    { value: 3, label: "mar", fullLabel: "Março" },
+    { value: 4, label: "abr", fullLabel: "Abril" },
+    { value: 5, label: "mai", fullLabel: "Maio" },
+    { value: 6, label: "jun", fullLabel: "Junho" },
+    { value: 7, label: "jul", fullLabel: "Julho" },
+    { value: 8, label: "ago", fullLabel: "Agosto" },
+    { value: 9, label: "set", fullLabel: "Setembro" },
+    { value: 10, label: "out", fullLabel: "Outubro" },
+    { value: 11, label: "nov", fullLabel: "Novembro" },
+    { value: 12, label: "dez", fullLabel: "Dezembro" },
   ];
 
   const years = [2023, 2024, 2025];
+  
+  const statusOptions = [
+    { value: "todos", label: "Todos" },
+    { value: "ativo", label: "Ativo" },
+    { value: "inativo", label: "Inativo" },
+    { value: "afastado", label: "Afastado" },
+  ];
+  
+  const divisaoOptions = [
+    { value: "todos", label: "Todos" },
+    { value: "administracao", label: "Administração" },
+    { value: "comercial", label: "Comercial" },
+    { value: "operacional", label: "Operacional" },
+    { value: "financeiro", label: "Financeiro" },
+    { value: "rh", label: "Recursos Humanos" },
+  ];
+  
+  const empresaOptions = [
+    { value: "1", label: "Opus Consultoria Ltda" },
+    { value: "2", label: "Opus Serviços" },
+    { value: "3", label: "Opus Tech" },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
@@ -75,48 +100,136 @@ export function OverviewSection() {
             </motion.div>
           </div>
           
-          {/* Período Filters */}
+          {/* Advanced Filters */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-2xl border border-blue-200/50"
-            data-testid="period-filters"
+            className="bg-white rounded-3xl shadow-lg border border-gray-200/50 p-6"
+            data-testid="advanced-filters"
           >
-            <div className="flex items-center gap-2 text-blue-700">
-              <Filter className="h-4 w-4" />
-              <span className="text-sm font-semibold">Filtros:</span>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex flex-col space-y-1">
-                <label className="text-xs font-semibold text-blue-700">Mês</label>
-                <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                  <SelectTrigger className="w-36 h-8 bg-white border-blue-200 text-sm" data-testid="select-month">
-                    <SelectValue placeholder="Mês" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {months.map((month) => (
-                      <SelectItem key={month.value} value={month.value.toString()}>
-                        {month.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* First Row - Status and Business Filters */}
+            <div className="flex flex-wrap items-center gap-6 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Filter className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800">Filtros Avançados</h3>
               </div>
-              <div className="flex flex-col space-y-1">
-                <label className="text-xs font-semibold text-blue-700">Ano</label>
-                <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                  <SelectTrigger className="w-24 h-8 bg-white border-blue-200 text-sm" data-testid="select-year">
-                    <SelectValue placeholder="Ano" />
-                  </SelectTrigger>
-                  <SelectContent>
+              
+              <div className="flex flex-wrap gap-4">
+                {/* Status Funcionário */}
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-gray-600" />
+                    <label className="text-sm font-semibold text-gray-700">Status Funcionário</label>
+                  </div>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="w-44 h-10 bg-white border-gray-300 text-sm shadow-sm hover:border-blue-400 transition-colors" data-testid="select-status">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Divisão */}
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4 text-gray-600" />
+                    <label className="text-sm font-semibold text-gray-700">Divisão</label>
+                  </div>
+                  <Select value={selectedDivisao} onValueChange={setSelectedDivisao}>
+                    <SelectTrigger className="w-48 h-10 bg-white border-gray-300 text-sm shadow-sm hover:border-blue-400 transition-colors" data-testid="select-divisao">
+                      <SelectValue placeholder="Divisão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {divisaoOptions.map((divisao) => (
+                        <SelectItem key={divisao.value} value={divisao.value}>
+                          {divisao.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Empresa */}
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-gray-600" />
+                    <label className="text-sm font-semibold text-gray-700">Empresa</label>
+                  </div>
+                  <Select value={selectedEmpresa} onValueChange={setSelectedEmpresa}>
+                    <SelectTrigger className="w-52 h-10 bg-white border-gray-300 text-sm shadow-sm hover:border-blue-400 transition-colors" data-testid="select-empresa">
+                      <SelectValue placeholder="Empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empresaOptions.map((empresa) => (
+                        <SelectItem key={empresa.value} value={empresa.value}>
+                          {empresa.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            
+            {/* Second Row - Date Filters */}
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-600" />
+                <span className="text-sm font-semibold text-gray-700">Período de Análise</span>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Year Buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-600">Ano:</span>
+                  <div className="flex gap-1">
                     {years.map((year) => (
-                      <SelectItem key={year} value={year.toString()}>
+                      <button
+                        key={year}
+                        onClick={() => setSelectedYear(year)}
+                        className={cn(
+                          "px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200",
+                          selectedYear === year
+                            ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-200"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        )}
+                      >
                         {year}
-                      </SelectItem>
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </div>
+                
+                {/* Month Buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-600">Mês:</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {months.map((month) => (
+                      <button
+                        key={month.value}
+                        onClick={() => setSelectedMonth(month.value)}
+                        className={cn(
+                          "px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-200 min-w-[44px]",
+                          selectedMonth === month.value
+                            ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg shadow-orange-200"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        )}
+                        title={month.fullLabel}
+                      >
+                        {month.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
