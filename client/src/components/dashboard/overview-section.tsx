@@ -91,6 +91,12 @@ export function OverviewSection() {
     label: company.label,
     icon: Building
   })) || [];
+
+  // Debug logs to check real data
+  console.log("🔍 DEBUG - Real data loaded:");
+  console.log("📊 Empresas:", companies?.length || 0, companies?.map(c => c.label) || []);
+  console.log("🏢 Divisões:", divisions?.length || 0, divisions?.map(d => d.label) || []);
+  console.log("⚡ Status:", employeeStatus?.length || 0, employeeStatus?.map(s => s.label) || []);
   
   // Set default empresa when companies load
   useEffect(() => {
