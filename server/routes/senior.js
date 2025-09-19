@@ -1,5 +1,5 @@
-const express = require('express');
-const { neon } = require('@neondatabase/serverless');
+import express from 'express';
+import { neon } from '@neondatabase/serverless';
 const router = express.Router();
 
 // Connection configuration
@@ -342,4 +342,4 @@ router.get('/turnover-chart', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

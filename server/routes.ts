@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { insertApiConnectionSchema } from "@shared/schema";
 import crypto from "crypto";
+import seniorRouter from "./routes/senior.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Connection endpoints
@@ -1125,6 +1126,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     res.json({ csrfToken: req.session.csrfToken });
   });
+
+  // Register Senior API routes
+  app.use("/api/senior", seniorRouter);
 
   // Health check endpoint (removido - duplicata)
 
