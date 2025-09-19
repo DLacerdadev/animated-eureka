@@ -98,12 +98,13 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
   const totalEmployees = stats.funcionarios_ativos || 0;
   const hires = stats.contratacoes_6meses || 0;
   const terminations = stats.funcionarios_demitidos || 0;
+  const avgSalary = stats.salario_medio || 0;
 
   const kpis = [
     {
       title: "Total Funcionários",
       value: formatNumber(totalEmployees),
-      subtitle: activeEmployees?.fonte ? `Fonte: ${activeEmployees.fonte.includes('R034FUN') ? 'R034FUN' : 'r350adm'}` : '',
+      subtitle: `Dados filtrados: ${totalEmployees} funcionários`,
       icon: Users,
       trend: kpiData?.trends.employees || 5.2,
       color: "from-blue-500 to-blue-600",
@@ -113,7 +114,7 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     {
       title: "Contratações",
       value: formatNumber(hires),
-      subtitle: `Período: ${selectedMonth}/${selectedYear}`,
+      subtitle: `Últimos 6 meses: ${hires} admissões`,
       icon: UserPlus,
       trend: hires > 0 ? 100 : 0,
       color: "from-emerald-500 to-emerald-600",
@@ -123,7 +124,7 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     {
       title: "Desligamentos",
       value: formatNumber(terminations),
-      subtitle: `Período: ${selectedMonth}/${selectedYear}`,
+      subtitle: `Total demitidos: ${terminations}`,
       icon: UserMinus,
       trend: terminations > 0 ? -100 : 0,
       color: "from-red-500 to-red-600",
@@ -131,9 +132,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
       iconBg: "bg-gradient-to-r from-red-500 to-red-600",
     },
     {
-      title: "Horas Extra",
-      value: kpiData ? `${formatNumber(kpiData.overtimeHours)}h` : "0h",
-      subtitle: "Dados em integração",
+      title: "Salário Médio",
+      value: `R$ ${formatNumber(avgSalary)}`,
+      subtitle: `Média salarial filtrada`,
       icon: Clock,
       trend: kpiData?.trends.overtime || 12.4,
       color: "from-purple-500 to-purple-600",
