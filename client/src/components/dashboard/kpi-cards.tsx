@@ -96,11 +96,22 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
   const terminations = stats.funcionarios_demitidos || 0;
   const avgSalary = stats.salario_medio || 0;
 
+  // Verificar se há filtros aplicados
+  const hasFilters = filterParams && (
+    filterParams.empresas || 
+    filterParams.divisoes || 
+    filterParams.status || 
+    filterParams.months || 
+    filterParams.years
+  );
+
   const kpis = [
     {
       title: "Total Funcionários",
       value: formatNumber(totalEmployees),
-      subtitle: `Dados filtrados: ${totalEmployees} funcionários`,
+      subtitle: hasFilters 
+        ? `Dados filtrados: ${formatNumber(totalEmployees)} funcionários`
+        : `${formatNumber(totalEmployees)} funcionários ativos`,
       icon: Users,
       trend: kpiData?.trends.employees || 5.2,
       color: "from-blue-500 to-blue-600",
@@ -110,7 +121,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     {
       title: "Contratações",
       value: formatNumber(hires),
-      subtitle: `Últimos 6 meses: ${hires} admissões`,
+      subtitle: hasFilters
+        ? `Filtrado: ${formatNumber(hires)} contratações`
+        : `Últimos 6 meses: ${formatNumber(hires)} admissões`,
       icon: UserPlus,
       trend: hires > 0 ? 100 : 0,
       color: "from-emerald-500 to-emerald-600",
@@ -120,7 +133,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     {
       title: "Desligamentos",
       value: formatNumber(terminations),
-      subtitle: `Total demitidos: ${terminations}`,
+      subtitle: hasFilters
+        ? `Filtrado: ${formatNumber(terminations)} demissões`
+        : `Total demitidos: ${formatNumber(terminations)}`,
       icon: UserMinus,
       trend: terminations > 0 ? -100 : 0,
       color: "from-red-500 to-red-600",
@@ -130,7 +145,9 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     {
       title: "Salário Médio",
       value: `R$ ${formatNumber(avgSalary)}`,
-      subtitle: `Média salarial filtrada`,
+      subtitle: hasFilters
+        ? `Média salarial filtrada`
+        : `Média salarial geral`,
       icon: Clock,
       trend: kpiData?.trends.overtime || 12.4,
       color: "from-purple-500 to-purple-600",

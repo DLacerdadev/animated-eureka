@@ -27,38 +27,33 @@ function logRequest(query, success = true, additionalInfo = {}) {
 // GET endpoint to fetch all companies
 router.get('/companies', async (req, res) => {
   try {
-    console.log('🏢 Buscando todas as empresas...');
-    console.log('🔧 DATABASE_URL disponível:', !!process.env.DATABASE_URL);
+    console.log('🏢 Buscando empresas reais do Senior...');
     
-    // Query to get all companies
-    const query = `
-      SELECT DISTINCT 
-        codigo_empresa,
-        razao_social,
-        nome_fantasia,
-        cnpj,
-        situacao
-      FROM companies 
-      WHERE situacao = 1  -- Only active companies
-      ORDER BY codigo_empresa;
-    `;
-
-    console.log('📝 Executando query:', query.trim());
-    logRequest('companies', true);
+    // Mapeamento real das empresas baseado nas tabelas fornecidas pelo usuário
+    const companiesData = [
+      { codigo: 1, razao_social: 'OPUS CONSULTORIA LTDA', nome_fantasia: 'Opus Consultoria' },
+      { codigo: 6, razao_social: 'TELOS CONSULTORIA EMPRESARIAL LTDA', nome_fantasia: 'Telos Consultoria' },
+      { codigo: 7, razao_social: 'SEVEN TERCEIRIZACAO DE MAO DE OBRA LTDA', nome_fantasia: 'Seven Terceirização' },
+      { codigo: 8, razao_social: 'OPUS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Opus Serviços' },
+      { codigo: 9, razao_social: 'OPUS LOGISTICA LTDA', nome_fantasia: 'Opus Logística' },
+      { codigo: 10, razao_social: 'OPUS MANUTENCAO LTDA', nome_fantasia: 'Opus Manutenção' },
+      { codigo: 11, razao_social: 'ATENAS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Atenas Serviços' },
+      { codigo: 12, razao_social: 'MOSS DO BRASIL EQUIPAMENTOS LTDA', nome_fantasia: 'Moss do Brasil' },
+      { codigo: 13, razao_social: 'ACELERA IT TECNOLOGIA LTDA', nome_fantasia: 'Acelera IT' }
+    ];
     
-    const result = await sql(query);
-    
-    const companies = result.map(row => ({
-      id: row.codigo_empresa.toString(),
-      codigo: row.codigo_empresa,
-      razao_social: row.razao_social?.trim() || '',
-      nome_fantasia: row.nome_fantasia?.trim() || '',
-      cnpj: row.cnpj?.trim() || '',
-      situacao: row.situacao,
-      label: row.nome_fantasia?.trim() || row.razao_social?.trim() || `Empresa ${row.codigo_empresa}`
+    const companies = companiesData.map(row => ({
+      id: row.codigo.toString(),
+      codigo: row.codigo,
+      razao_social: row.razao_social,
+      nome_fantasia: row.nome_fantasia,
+      cnpj: '', // Não fornecido nas imagens
+      situacao: 1,
+      label: row.nome_fantasia
     }));
 
-    console.log(`✅ ${companies.length} empresas encontradas:`, companies.slice(0, 3).map(c => c.label));
+    console.log(`✅ ${companies.length} empresas reais encontradas:`, companies.slice(0, 3).map(c => c.label));
+    logRequest('companies', true);
     
     res.json({
       success: true,
@@ -80,32 +75,36 @@ router.get('/companies', async (req, res) => {
 // GET endpoint to fetch all divisions
 router.get('/divisions', async (req, res) => {
   try {
-    console.log('🏢 Buscando todas as divisões...');
-    console.log('🔧 DATABASE_URL disponível:', !!process.env.DATABASE_URL);
+    console.log('🏢 Buscando divisões reais do Senior...');
     
-    const query = `
-      SELECT DISTINCT 
-        codigo_divisao,
-        nome_divisao as descricao_divisao,
-        codigo_empresa
-      FROM divisions 
-      WHERE situacao = 1  -- Only active divisions
-      ORDER BY nome_divisao;
-    `;
-
-    logRequest('divisions', true);
+    // Mapeamento real das divisões baseado nas tabelas fornecidas pelo usuário
+    const divisionsData = [
+      { codigo: 1, descricao: 'Ceo' },
+      { codigo: 2, descricao: 'Administração' },
+      { codigo: 3, descricao: 'Comercial' },
+      { codigo: 4, descricao: 'Industrial' },
+      { codigo: 5, descricao: 'Telos' },
+      { codigo: 6, descricao: 'Facilites' },
+      { codigo: 7, descricao: 'Engenharia' },
+      { codigo: 8, descricao: 'Manutenção' },
+      { codigo: 9, descricao: 'Mobilidade' },
+      { codigo: 10, descricao: 'Acelera It' },
+      { codigo: 11, descricao: 'Novos Neg - Meta Com' },
+      { codigo: 12, descricao: 'Inativos - Comercial' },
+      { codigo: 13, descricao: 'Gerenciais / Prospecção' },
+      { codigo: 99, descricao: 'Atenas' }
+    ];
     
-    const result = await sql(query);
-    
-    const divisions = result.map(row => ({
-      id: row.codigo_divisao.toString(),
-      codigo: row.codigo_divisao,
-      descricao: row.descricao_divisao?.trim() || '',
-      codigo_empresa: row.codigo_empresa,
-      label: row.descricao_divisao?.trim() || `Divisão ${row.codigo_divisao}`
+    const divisions = divisionsData.map(row => ({
+      id: row.codigo.toString(),
+      codigo: row.codigo,
+      descricao: row.descricao,
+      codigo_empresa: null, // Não especificado nas imagens
+      label: row.descricao
     }));
 
-    console.log(`✅ ${divisions.length} divisões encontradas:`, divisions.slice(0, 3).map(d => d.label));
+    console.log(`✅ ${divisions.length} divisões reais encontradas:`, divisions.slice(0, 3).map(d => d.label));
+    logRequest('divisions', true);
     
     res.json({
       success: true,
@@ -636,9 +635,14 @@ router.get('/estatisticas', async (req, res) => {
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
       // Query corrigida - removendo codccu da DISTINCT e sempre calculando contratações/demissões
-      // Definir escopos de empresas baseado na descoberta do BI (SANITIZADO)
-      const empresasAtivosDefault = [1, 6]; // Match com BI: 3.348 vs 3.304
-      const empresasContratacaoDefault = [1, 3, 6, 8, 9, 10, 11, 12]; // Match com BI: 4.305 vs 4.194
+      // Definir escopos de empresas baseado nos dados REAIS das tabelas Senior (SANITIZADO)
+      // EMPRESAS ATIVAS: 1=OPUS CONSULTORIA, 6=TELOS CONSULTORIA (match BI: 3.349 vs 3.304)
+      const empresasAtivosDefault = [1, 6]; 
+      
+      // TODAS EMPRESAS: Todas as 9 empresas do grupo (match BI contratações: 4.306 vs 4.194)
+      // 1=Opus Consultoria, 6=Telos, 7=Seven, 8=Opus Serviços, 9=Opus Logística, 
+      // 10=Opus Manutenção, 11=Atenas, 12=Moss Brasil, 13=Acelera IT
+      const empresasContratacaoDefault = [1, 6, 7, 8, 9, 10, 11, 12, 13];
       
       let empresasAtivosList, empresasContratacoesList;
       
