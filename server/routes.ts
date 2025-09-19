@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertApiConnectionSchema } from "@shared/schema";
+import crypto from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Connection endpoints
@@ -1081,7 +1082,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Gera token CSRF
-      req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
+      req.session.csrfToken = crypto.randomBytes(32).toString('hex');
       
       console.log(`🔑 LOGIN: Usuário ${username} (${role}) autenticado`);
       res.json({ 
@@ -1120,7 +1121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/auth/csrf", (req, res) => {
     if (!req.session.csrfToken) {
-      req.session.csrfToken = require('crypto').randomBytes(32).toString('hex');
+      req.session.csrfToken = crypto.randomBytes(32).toString('hex');
     }
     res.json({ csrfToken: req.session.csrfToken });
   });
