@@ -73,12 +73,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <div className="w-12 h-12 flex items-center justify-center">
-                  <img src={opusLogo} alt="Opus Logo" className="w-full h-full object-contain brightness-0 invert" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-300 to-slate-100 bg-clip-text text-transparent">grupo opus</h1>
-                  <p className="text-sm text-slate-400 font-medium">Dashboard RH Senior</p>
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="w-20 h-20 flex items-center justify-center">
+                    <img src={opusLogo} alt="Opus Logo" className="w-full h-full object-contain brightness-0 invert" />
+                  </div>
+                  <p className="text-sm text-slate-400 font-medium text-center">Dashboard RH Senior</p>
                 </div>
               </motion.div>
               <button 
