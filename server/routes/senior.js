@@ -538,7 +538,7 @@ router.get('/estatisticas', async (req, res) => {
       // Construir condições WHERE baseadas nos filtros
       let whereConditions = [];
       
-      // Aplicar filtro de anos - lógica correta para intersecção de período de emprego
+      // Aplicar filtro de anos e meses - lógica correta para intersecção de período
       if (years && years !== '') {
         const yearsList = years.split(',')
           .filter(y => y.trim() !== '')
@@ -546,12 +546,40 @@ router.get('/estatisticas', async (req, res) => {
           .filter(year => !isNaN(year) && year > 1900 && year <= new Date().getFullYear() + 10); // Validação de anos
         
         if (yearsList.length > 0) {
-          // Para cada ano, incluir funcionários cujo emprego intersecta com o ano
-          // Lógica: admitido até fim do ano E (ainda ativo OU demitido depois do início do ano)
-          const yearConditions = yearsList.map(year => 
-            `(datadm <= DATEFROMPARTS(${year},12,31) AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(${year},1,1)))`
-          ).join(' OR ');
-          whereConditions.push(`(${yearConditions})`);
+          if (months && months !== '') {
+            // Filtro combinado: anos + meses específicos
+            const monthsList = months.split(',')
+              .filter(m => m.trim() !== '')
+              .map(m => parseInt(m.trim()))
+              .filter(month => !isNaN(month) && month >= 1 && month <= 12); // Validação de meses
+            
+            if (monthsList.length > 0) {
+              const periodConditions = [];
+              for (const year of yearsList) {
+                for (const month of monthsList) {
+                  // Para cada combinação ano/mês, verificar intersecção do período de emprego
+                  const startOfMonth = `DATEFROMPARTS(${year},${month},1)`;
+                  const endOfMonth = `EOMONTH(DATEFROMPARTS(${year},${month},1))`;
+                  periodConditions.push(
+                    `(datadm <= ${endOfMonth} AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= ${startOfMonth}))`
+                  );
+                }
+              }
+              whereConditions.push(`(${periodConditions.join(' OR ')})`);
+            } else {
+              // Apenas anos, sem meses específicos
+              const yearConditions = yearsList.map(year => 
+                `(datadm <= DATEFROMPARTS(${year},12,31) AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(${year},1,1)))`
+              ).join(' OR ');
+              whereConditions.push(`(${yearConditions})`);
+            }
+          } else {
+            // Apenas anos, sem meses
+            const yearConditions = yearsList.map(year => 
+              `(datadm <= DATEFROMPARTS(${year},12,31) AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(${year},1,1)))`
+            ).join(' OR ');
+            whereConditions.push(`(${yearConditions})`);
+          }
         }
       }
       
