@@ -7,7 +7,7 @@ import { DivisionChart } from "@/components/dashboard/division-chart";
 import { ChartLine, ChartPie, MoreHorizontal, UserPlus, UserX, Clock, Calendar, Filter, Sparkles, Activity, Building, Users, UserCheck, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useCompanies, useDivisions, useEmployeeStatus } from "@/hooks/use-filter-data";
@@ -45,7 +45,7 @@ export function OverviewSection() {
   const [selectedYears, setSelectedYears] = useState<string[]>(["2025"]);
   const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
   const [selectedDivisao, setSelectedDivisao] = useState<string[]>([]);
-  const [selectedEmpresa, setSelectedEmpresa] = useState<string[]>(["1"]); // Opus Consultoria
+  const [selectedEmpresa, setSelectedEmpresa] = useState<string[]>([]);
   
   // Fetch real data
   const { data: companies, isLoading: loadingCompanies } = useCompanies();
@@ -91,6 +91,13 @@ export function OverviewSection() {
     label: company.label,
     icon: Building
   })) || [];
+  
+  // Set default empresa when companies load
+  useEffect(() => {
+    if (empresaOptions.length > 0 && selectedEmpresa.length === 0) {
+      setSelectedEmpresa([empresaOptions[0].value]);
+    }
+  }, [empresaOptions, selectedEmpresa]);
   
   // Calculate current filter values for API calls - support multiple values
   const currentMonth = selectedMonths[0] ? parseInt(selectedMonths[0]) : 9;
@@ -151,7 +158,7 @@ export function OverviewSection() {
                   onClick={() => {
                     setSelectedStatus([]);
                     setSelectedDivisao([]);
-                    setSelectedEmpresa(["1"]);
+                    setSelectedEmpresa(empresaOptions.length > 0 ? [empresaOptions[0].value] : []);
                     setSelectedMonths(["9"]);
                     setSelectedYears(["2025"]);
                   }}
