@@ -601,10 +601,10 @@ router.get('/estatisticas', async (req, res) => {
           console.log('🏢 Aplicando filtro de empresas:', empresasList);
         }
       } else {
-        // Por padrão, usar apenas empresas que realmente têm funcionários ativos em 2025
-        const empresasComDados = [1,3,6,8,9,10,11,12]; // Baseado na investigação real da base
+        // Por padrão, usar empresas que dão match com o BI (3.304 funcionários ativos)
+        const empresasComDados = [1,6]; // Baseado no match com BI: 3.348 ativos (diferença de apenas 44)
         whereConditions.push(`numemp IN (${empresasComDados.join(',')})`);
-        console.log('🏢 Aplicando filtro padrão (empresas com dados 2025):', empresasComDados);
+        console.log('🏢 Aplicando filtro padrão (empresas que dão match com BI):', empresasComDados);
       }
 
       // Aplicar filtros de status e divisões (CRITICAL: estavam sendo ignorados!)
