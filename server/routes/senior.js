@@ -766,4 +766,100 @@ router.get('/divisoes-dados', async (req, res) => {
   }
 });
 
+// GET endpoint para teste da estrutura de folha baseada no documento do usuário
+router.get('/teste-estrutura-folha', async (req, res) => {
+  try {
+    console.log('🧪 Testando estrutura de folha baseada no documento do usuário...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
+    
+    if (!SENIOR_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'SENIOR_API_KEY não configurada'
+      });
+    }
+
+    // Primeiro, descobrir quais empresas realmente existem
+    const queryEmpresas = `
+      SELECT DISTINCT 
+        numemp as empresa, 
+        COUNT(*) as registros 
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      GROUP BY numemp 
+      ORDER BY numemp
+    `;
+    
+    console.log('📝 Consultando empresas reais na r034fun...');
+    
+    const responseEmpresas = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SENIOR_API_KEY,
+      },
+      body: JSON.stringify({ sqlText: queryEmpresas }),
+    });
+    
+    if (!responseEmpresas.ok) {
+      throw new Error(`Erro ao consultar empresas: ${responseEmpresas.status}`);
+    }
+    
+    const empresasResult = await responseEmpresas.json();
+    console.log('🏢 Empresas encontradas:', empresasResult);
+
+    // Segundo, testar contagem usando primary key correta
+    const queryPK = `
+      SELECT 
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as funcionarios_unicos_pk,
+        COUNT(*) as total_registros,
+        COUNT(CASE WHEN sitafa = 1 THEN 1 END) as funcionarios_ativos,
+        COUNT(DISTINCT numemp) as empresas_distintas
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE ((datadm <= DATEFROMPARTS(2025,12,31) AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(2025,1,1))))
+    `;
+    
+    console.log('📝 Testando contagem com PK correta para 2025...');
+    
+    const responsePK = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SENIOR_API_KEY,
+      },
+      body: JSON.stringify({ sqlText: queryPK }),
+    });
+    
+    if (!responsePK.ok) {
+      throw new Error(`Erro ao consultar com PK: ${responsePK.status}`);
+    }
+    
+    const pkResult = await responsePK.json();
+    console.log('🔑 Resultado da contagem com PK:', pkResult);
+
+    res.json({
+      success: true,
+      data: {
+        empresas_reais: empresasResult,
+        contagem_pk_2025: pkResult
+      },
+      observacoes: {
+        pk_formula: "CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)",
+        estrutura_baseada_em: "Documento do usuário - query da folha"
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao testar estrutura de folha:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao testar estrutura de folha',
+      message: error.message
+    });
+  }
+});
+
 export default router;
