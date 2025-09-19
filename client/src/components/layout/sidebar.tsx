@@ -45,13 +45,6 @@ const navigationItems = [
       { icon: Handshake, label: "CCT", href: "/cct", section: "cct" },
     ],
   },
-  {
-    title: "Configuração",
-    items: [
-      { icon: Filter, label: "Filtros", href: "/filtros", section: "filtros" },
-      { icon: Settings, label: "Configuração API", href: "/api-config", section: "api-config" },
-    ],
-  },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
