@@ -538,7 +538,7 @@ router.get('/estatisticas', async (req, res) => {
       // Construir condições WHERE baseadas nos filtros
       let whereConditions = [];
       
-      // Aplicar filtro de anos nas datas de admissão e demissão
+      // Aplicar filtro de anos - lógica correta para intersecção de período de emprego
       if (years && years !== '') {
         const yearsList = years.split(',')
           .filter(y => y.trim() !== '')
@@ -546,8 +546,10 @@ router.get('/estatisticas', async (req, res) => {
           .filter(year => !isNaN(year) && year > 1900 && year <= new Date().getFullYear() + 10); // Validação de anos
         
         if (yearsList.length > 0) {
+          // Para cada ano, incluir funcionários cujo emprego intersecta com o ano
+          // Lógica: admitido até fim do ano E (ainda ativo OU demitido depois do início do ano)
           const yearConditions = yearsList.map(year => 
-            `(YEAR(datadm) = ${year} OR YEAR(datafa) = ${year})`
+            `(datadm <= DATEFROMPARTS(${year},12,31) AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(${year},1,1)))`
           ).join(' OR ');
           whereConditions.push(`(${yearConditions})`);
         }
