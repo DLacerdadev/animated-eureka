@@ -11,7 +11,6 @@ import APIConfig from "@/pages/api-config";
 import Contratacoes from "@/pages/contratacoes";
 import Desligamentos from "@/pages/desligamentos";
 import Turnover from "@/pages/turnover";
-import PerfilEmpresa from "@/pages/perfil-empresa";
 import { ModulePlaceholder } from "@/components/modules/module-placeholder";
 import NotFound from "@/pages/not-found";
 
