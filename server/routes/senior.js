@@ -498,50 +498,88 @@ router.get('/estatisticas', async (req, res) => {
       }
     }
     
-    // Gerar dados reais baseados na lógica da API Senior para BI
-    console.log('📊 Gerando estatísticas da API Senior com números BI esperados...');
+    // Integração real com API Senior usando infraestrutura existente
+    console.log('📊 Consultando API Senior real para estatísticas...');
     
-    // Função helper para gerar dados consistentes com BI
-    function generateSeniorApiStats() {
-      // Base: aproximar dos 3304 funcionários ativos do BI  
-      const base_funcionarios_ativos = 3304;
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
+    
+    if (!SENIOR_API_KEY) {
+      console.log('⚠️ SENIOR_API_KEY não configurada - usando fallback banco local');
+      // Fallback para dados do banco local
+      const localQuery = `
+        SELECT 
+          COUNT(*) as total_funcionarios,
+          COUNT(CASE WHEN f.codigo_situacao = 1 THEN 1 END) as funcionarios_ativos,
+          COUNT(CASE WHEN f.codigo_situacao = 2 THEN 1 END) as funcionarios_demitidos,
+          COUNT(CASE WHEN f.sexo = 'Masculino' THEN 1 END) as masculino,
+          COUNT(CASE WHEN f.sexo = 'Feminino' THEN 1 END) as feminino,
+          ROUND(AVG(f.salario), 2) as salario_medio,
+          COUNT(CASE WHEN f.data_admissao >= CURRENT_DATE - INTERVAL '6 months' THEN 1 END) as contratacoes_6meses
+        FROM funcionarios f
+        ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''}
+      `;
+      const localResult = await sql(localQuery, params);
+      const stats = localResult[0] || {};
+      console.log('✅ Estatísticas locais calculadas:', stats);
       
-      // Adicionar variação pequena para simular dados dinâmicos reais
-      const variacao = Math.floor(Math.random() * 50) - 25; // -25 a +25
-      const funcionarios_ativos = base_funcionarios_ativos + variacao;
-      
-      return {
-        // Totais baseados na lógica real da API Senior
-        total_funcionarios: funcionarios_ativos,
-        funcionarios_ativos: funcionarios_ativos,
-        funcionarios_demitidos: Math.floor(funcionarios_ativos * 0.12), // ~12% demitidos histórico
-        
-        // Distribuição por gênero (baseada em dados típicos RH)
-        masculino: Math.floor(funcionarios_ativos * 0.58), // 58% masculino
-        feminino: Math.floor(funcionarios_ativos * 0.42), // 42% feminino
-        
-        // Salário médio estimado para setor
-        salario_medio: (8500 + Math.floor(Math.random() * 1000)).toFixed(2),
-        
-        // Contratações últimos 6 meses (baseado em taxa de crescimento)
-        contratacoes_6meses: Math.floor(funcionarios_ativos * 0.15) // ~15% do quadro
-      };
+      res.json({
+        success: true,
+        data: stats,
+        filters: { empresas, divisoes, status, months, years }
+      });
+      return;
+    }
+
+    // Query SQL real para API Senior - schema real r070nau
+    const sqlQuery = `
+      SELECT 
+        COUNT(*) as total_funcionarios,
+        COUNT(CASE WHEN sitafa = 1 THEN 1 END) as funcionarios_ativos,
+        COUNT(CASE WHEN sitafa = 2 THEN 1 END) as funcionarios_demitidos,
+        COUNT(CASE WHEN sexo = 'M' THEN 1 END) as masculino,
+        COUNT(CASE WHEN sexo = 'F' THEN 1 END) as feminino,
+        ROUND(AVG(CAST(salario as decimal)), 2) as salario_medio,
+        COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
+      FROM [${MSSQL_DB}].dbo.r070nau
+      WHERE sitafa IN (1, 2)
+    `;
+    
+    console.log('📝 Executando query SQL real na API Senior:', sqlQuery);
+    
+    // Fazer requisição real para API Senior usando infraestrutura existente
+    const response = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SENIOR_API_KEY,
+      },
+      body: JSON.stringify({ sqlText: sqlQuery }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API Senior retornou erro: ${response.status} ${response.statusText}`);
     }
     
-    const seniorStats = generateSeniorApiStats();
+    const apiResult = await response.json();
+    console.log('📊 Resultado raw da API Senior:', apiResult);
     
-    // Converter para strings (formato esperado pelo frontend)
+    // Processar resultado da API Senior
+    const rawStats = apiResult.rows && apiResult.rows.length > 0 ? apiResult.rows[0] : {};
+    
+    // Converter para formato esperado pelo frontend
     const stats = {
-      total_funcionarios: seniorStats.total_funcionarios.toString(),
-      funcionarios_ativos: seniorStats.funcionarios_ativos.toString(),
-      funcionarios_demitidos: seniorStats.funcionarios_demitidos.toString(),
-      masculino: seniorStats.masculino.toString(),
-      feminino: seniorStats.feminino.toString(),
-      salario_medio: seniorStats.salario_medio,
-      contratacoes_6meses: seniorStats.contratacoes_6meses.toString()
+      total_funcionarios: (rawStats.total_funcionarios || 0).toString(),
+      funcionarios_ativos: (rawStats.funcionarios_ativos || 0).toString(),
+      funcionarios_demitidos: (rawStats.funcionarios_demitidos || 0).toString(),
+      masculino: (rawStats.masculino || 0).toString(),
+      feminino: (rawStats.feminino || 0).toString(),
+      salario_medio: (rawStats.salario_medio || 0).toString(),
+      contratacoes_6meses: (rawStats.contratacoes_6meses || 0).toString()
     };
 
-    console.log('✅ Estatísticas API Senior (compatível com BI):', stats);
+    console.log('✅ Estatísticas reais da API Senior:', stats);
     
     res.json({
       success: true,
