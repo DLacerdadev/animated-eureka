@@ -559,6 +559,23 @@ router.get('/estatisticas', async (req, res) => {
       const investigateResult = await investigateResponse.json();
       console.log('🔍 Estrutura da tabela r034fun:', investigateResult);
       
+      // Construir condições WHERE baseadas nos filtros
+      let whereConditions = [];
+      
+      // Aplicar filtro de anos nas datas de admissão e demissão
+      if (years && years !== '') {
+        const yearsList = years.split(',').filter(y => y.trim() !== '').map(y => parseInt(y.trim()));
+        if (yearsList.length > 0) {
+          const yearConditions = yearsList.map(year => 
+            `(YEAR(datadm) = ${year} OR YEAR(datafa) = ${year})`
+          ).join(' OR ');
+          whereConditions.push(`(${yearConditions})`);
+        }
+      }
+      
+      // Construir cláusula WHERE
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+      
       // Query corrigida usando campos reais descobertos na investigação da tabela r034fun
       const realQuery = `
         SELECT 
@@ -568,8 +585,9 @@ router.get('/estatisticas', async (req, res) => {
           COUNT(CASE WHEN tipsex = 'M' THEN 1 END) as masculino,
           COUNT(CASE WHEN tipsex = 'F' THEN 1 END) as feminino,
           ROUND(AVG(CAST(valsal as decimal)), 2) as salario_medio,
-          COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
+          COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) ${years && years !== '' ? 'AND (' + years.split(',').filter(y => y.trim() !== '').map(y => `YEAR(datadm) = ${parseInt(y.trim())}`).join(' OR ') + ')' : ''} THEN 1 END) as contratacoes_6meses
         FROM [${MSSQL_DB}].dbo.r034fun
+        ${whereClause}
       `;
       
       console.log('📝 Executando query real na tabela r034fun:', realQuery);
