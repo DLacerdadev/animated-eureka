@@ -17,7 +17,6 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ConnectionStatus } from "@/components/dashboard/connection-status";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -96,11 +95,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             >
               <X className="h-4 w-4" />
             </button>
-          </div>
-          
-          {/* API Connection Status */}
-          <div className="p-4">
-            <ConnectionStatus />
           </div>
           
           {/* Navigation Menu */}
