@@ -559,16 +559,15 @@ router.get('/estatisticas', async (req, res) => {
       const investigateResult = await investigateResponse.json();
       console.log('🔍 Estrutura da tabela r034fun:', investigateResult);
       
-      // Agora que conhecemos a estrutura, fazer query real baseada nas colunas disponíveis
-      // Assumindo colunas comuns de funcionários (vamos ajustar baseado no resultado)
+      // Query corrigida usando campos reais descobertos na investigação da tabela r034fun
       const realQuery = `
         SELECT 
           COUNT(*) as total_funcionarios,
-          COUNT(CASE WHEN sitfun = 'A' OR sitfun = '1' THEN 1 END) as funcionarios_ativos,
-          COUNT(CASE WHEN sitfun = 'D' OR sitfun = '2' THEN 1 END) as funcionarios_demitidos,
-          COUNT(CASE WHEN sexfun = 'M' THEN 1 END) as masculino,
-          COUNT(CASE WHEN sexfun = 'F' THEN 1 END) as feminino,
-          ROUND(AVG(CAST(salfun as decimal)), 2) as salario_medio,
+          COUNT(CASE WHEN sitafa = 1 THEN 1 END) as funcionarios_ativos,
+          COUNT(CASE WHEN sitafa = 7 THEN 1 END) as funcionarios_demitidos,
+          COUNT(CASE WHEN tipsex = 'M' THEN 1 END) as masculino,
+          COUNT(CASE WHEN tipsex = 'F' THEN 1 END) as feminino,
+          ROUND(AVG(CAST(valsal as decimal)), 2) as salario_medio,
           COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
         FROM [${MSSQL_DB}].dbo.r034fun
       `;
