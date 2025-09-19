@@ -766,6 +766,199 @@ router.get('/divisoes-dados', async (req, res) => {
   }
 });
 
+// GET endpoint para investigar valores de sitafa e TIPCOL em Janeiro
+router.get('/investigar-campos-janeiro', async (req, res) => {
+  try {
+    console.log('🔍 Investigando valores de sitafa e TIPCOL para Janeiro 2025...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
+    
+    if (!SENIOR_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'SENIOR_API_KEY não configurada'
+      });
+    }
+
+    const empresasReais = [1,2,3,4,5,6,7,8,9,10,11,12,13];
+
+    // Investigar valores distintos de sitafa e TIPCOL para o período
+    const queryInvestigacao = `
+      SELECT 
+        sitafa,
+        TIPCOL,
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as quantidade_funcionarios
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE (datadm <= DATEFROMPARTS(2025,1,31)) 
+      AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa > DATEFROMPARTS(2025,1,31))
+      AND numemp IN (${empresasReais.join(',')})
+      GROUP BY sitafa, TIPCOL
+      ORDER BY quantidade_funcionarios DESC
+    `;
+
+    // Total geral de funcionários no final de janeiro
+    const queryTotalGeral = `
+      SELECT 
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as total_funcionarios_janeiro
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE (datadm <= DATEFROMPARTS(2025,1,31)) 
+      AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa > DATEFROMPARTS(2025,1,31))
+      AND numemp IN (${empresasReais.join(',')})
+    `;
+
+    // Testar incluindo TIPCOL IN (1,3,5) baseado nos logs anteriores
+    const queryTipcol135 = `
+      SELECT 
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as funcionarios_tipcol_135
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE (datadm <= DATEFROMPARTS(2025,1,31)) 
+      AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa > DATEFROMPARTS(2025,1,31))
+      AND numemp IN (${empresasReais.join(',')})
+      AND TIPCOL IN (1,3,5)
+    `;
+
+    console.log('📝 Executando investigações...');
+    
+    const promises = [
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryInvestigacao }),
+      }),
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryTotalGeral }),
+      }),
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryTipcol135 }),
+      })
+    ];
+
+    const responses = await Promise.all(promises);
+    const results = await Promise.all(responses.map(r => r.json()));
+
+    console.log('🔍 Resultados das investigações:', results);
+
+    res.json({
+      success: true,
+      data: {
+        distribucao_sitafa_tipcol: results[0],
+        total_funcionarios_janeiro: results[1],
+        funcionarios_tipcol_135: results[2]
+      },
+      observacoes: {
+        objetivo: "Descobrir qual combinação de sitafa + TIPCOL resulta em 2394 funcionários (alvo do BI)",
+        BI_esperado: 2394,
+        atual_sitafa_1: 1257
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao investigar campos:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET endpoint para testar lógicas diferentes de funcionários ativos
+router.get('/teste-logicas-janeiro', async (req, res) => {
+  try {
+    console.log('🧪 Testando diferentes lógicas para Janeiro 2025...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
+    
+    if (!SENIOR_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'SENIOR_API_KEY não configurada'
+      });
+    }
+
+    const empresasReais = [1,2,3,4,5,6,7,8,9,10,11,12,13];
+
+    // LÓGICA 1: Intersecção com período (nossa lógica atual)
+    const queryInterseccao = `
+      SELECT 
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as total_funcionarios,
+        COUNT(DISTINCT CASE WHEN sitafa = 1 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_ativos
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE ((datadm <= EOMONTH(DATEFROMPARTS(2025,1,1)) AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(2025,1,1))))
+      AND numemp IN (${empresasReais.join(',')})
+    `;
+
+    // LÓGICA 2: Ativos no final do período (31/01/2025)
+    const queryFinalPeriodo = `
+      SELECT 
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as total_funcionarios,
+        COUNT(DISTINCT CASE WHEN sitafa = 1 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_ativos
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE (datadm <= DATEFROMPARTS(2025,1,31)) 
+      AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa > DATEFROMPARTS(2025,1,31))
+      AND numemp IN (${empresasReais.join(',')})
+    `;
+
+    // LÓGICA 3: Snapshot no último dia útil de janeiro
+    const querySnapshot = `
+      SELECT 
+        COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as total_funcionarios,
+        COUNT(DISTINCT CASE WHEN sitafa = 1 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_ativos
+      FROM [${MSSQL_DB}].dbo.r034fun 
+      WHERE (datadm <= DATEFROMPARTS(2025,1,31)) 
+      AND (datafa IS NULL OR datafa = '1900-12-31 00:00:00' OR datafa >= DATEFROMPARTS(2025,2,1))
+      AND numemp IN (${empresasReais.join(',')})
+    `;
+
+    console.log('📝 Testando 3 lógicas diferentes...');
+    
+    const promises = [
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryInterseccao }),
+      }),
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: queryFinalPeriodo }),
+      }),
+      fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
+        body: JSON.stringify({ sqlText: querySnapshot }),
+      })
+    ];
+
+    const responses = await Promise.all(promises);
+    const results = await Promise.all(responses.map(r => r.json()));
+
+    console.log('🔍 Resultados das 3 lógicas:', results);
+
+    res.json({
+      success: true,
+      data: {
+        logica_interseccao: results[0],
+        logica_final_periodo: results[1], 
+        logica_snapshot: results[2]
+      },
+      explicacao: {
+        interseccao: "Funcionários que trabalharam EM ALGUM MOMENTO de janeiro",
+        final_periodo: "Funcionários ativos NO FINAL de janeiro (31/01)",
+        snapshot: "Funcionários ativos em janeiro que saíram apenas em fevereiro+"
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao testar lógicas:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET endpoint para teste da estrutura de folha baseada no documento do usuário
 router.get('/teste-estrutura-folha', async (req, res) => {
   try {
