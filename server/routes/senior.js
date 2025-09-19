@@ -532,39 +532,19 @@ router.get('/estatisticas', async (req, res) => {
       return;
     }
 
-    // Primeiro, vamos investigar a estrutura da tabela r034fun
-    const investigateQuery = `
-      SELECT TOP 5 * 
-      FROM [${MSSQL_DB}].dbo.r034fun
-    `;
-    
-    console.log('🔍 Investigando estrutura da tabela r034fun...');
-    console.log('📝 Query de investigação:', investigateQuery);
-    
-    // Fazer requisição real para API Senior - primeiro investigar r034fun
+    // Fazer requisição real para API Senior
     try {
-      const investigateResponse = await fetch(`${SENIOR_API_URL}/query`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SENIOR_API_KEY,
-        },
-        body: JSON.stringify({ sqlText: investigateQuery }),
-      });
-      
-      if (!investigateResponse.ok) {
-        throw new Error(`API Senior erro na investigação: ${investigateResponse.status} ${investigateResponse.statusText}`);
-      }
-      
-      const investigateResult = await investigateResponse.json();
-      console.log('🔍 Estrutura da tabela r034fun:', investigateResult);
       
       // Construir condições WHERE baseadas nos filtros
       let whereConditions = [];
       
       // Aplicar filtro de anos nas datas de admissão e demissão
       if (years && years !== '') {
-        const yearsList = years.split(',').filter(y => y.trim() !== '').map(y => parseInt(y.trim()));
+        const yearsList = years.split(',')
+          .filter(y => y.trim() !== '')
+          .map(y => parseInt(y.trim()))
+          .filter(year => !isNaN(year) && year > 1900 && year <= new Date().getFullYear() + 10); // Validação de anos
+        
         if (yearsList.length > 0) {
           const yearConditions = yearsList.map(year => 
             `(YEAR(datadm) = ${year} OR YEAR(datafa) = ${year})`
@@ -585,7 +565,7 @@ router.get('/estatisticas', async (req, res) => {
           COUNT(CASE WHEN tipsex = 'M' THEN 1 END) as masculino,
           COUNT(CASE WHEN tipsex = 'F' THEN 1 END) as feminino,
           ROUND(AVG(CAST(valsal as decimal)), 2) as salario_medio,
-          COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) ${years && years !== '' ? 'AND (' + years.split(',').filter(y => y.trim() !== '').map(y => `YEAR(datadm) = ${parseInt(y.trim())}`).join(' OR ') + ')' : ''} THEN 1 END) as contratacoes_6meses
+          COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
         FROM [${MSSQL_DB}].dbo.r034fun
         ${whereClause}
       `;
