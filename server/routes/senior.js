@@ -541,7 +541,7 @@ router.get('/estatisticas', async (req, res) => {
     // Fazer requisição real para API Senior
     try {
       
-      // Construir condições WHERE baseadas nos filtros
+      // Reutilizar condições WHERE já construídas (incluindo status e divisões)
       let whereConditions = [];
       
       // Aplicar filtro de anos e meses - lógica correta para intersecção de período
@@ -601,16 +601,43 @@ router.get('/estatisticas', async (req, res) => {
           console.log('🏢 Aplicando filtro de empresas:', empresasList);
         }
       } else {
-        // Por padrão, usar escopo reduzido de empresas baseado na análise do BI
-        const empresasBI = [1,2,3,4,5,6,7,8,9]; // Possivelmente o BI usa apenas estas 9 empresas
-        whereConditions.push(`numemp IN (${empresasBI.join(',')})`);
-        console.log('🏢 Aplicando filtro padrão (escopo BI):', empresasBI);
+        // Por padrão, usar apenas empresas que realmente têm funcionários ativos em 2025
+        const empresasComDados = [1,3,6,8,9,10,11,12]; // Baseado na investigação real da base
+        whereConditions.push(`numemp IN (${empresasComDados.join(',')})`);
+        console.log('🏢 Aplicando filtro padrão (empresas com dados 2025):', empresasComDados);
+      }
+
+      // Aplicar filtros de status e divisões (CRITICAL: estavam sendo ignorados!)
+      if (status && status !== '' && status !== 'todos') {
+        const statusIds = status.split(',').filter(id => id.trim() !== '' && id !== 'todos');
+        if (statusIds.length > 0) {
+          // Mapear para valores de sitafa baseado nos códigos de status
+          const sitafaValues = statusIds.map(id => {
+            switch(parseInt(id)) {
+              case 1: return 1; // Ativo
+              case 2: return 7; // Demitido  
+              case 3: return 2; // Afastado
+              case 4: return 3; // Férias
+              case 5: return 4; // Licença
+              case 6: return 8; // Aposentado
+              default: return 1;
+            }
+          });
+          whereConditions.push(`sitafa IN (${sitafaValues.join(',')})`);
+          console.log('📊 Aplicando filtro de status (sitafa):', sitafaValues);
+        }
+      }
+
+      if (divisoes && divisoes !== '') {
+        // NOTA: divisões não estão mapeadas na r034fun, por isso não aplicamos esse filtro aqui
+        // A filtragem de divisões deve ser feita no frontend após obter os dados
+        console.log('🏢 Filtro de divisões será aplicado no frontend (não disponível em r034fun)');
       }
       
       // Construir cláusula WHERE
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
-      // Query corrigida - removendo codccu da DISTINCT para evitar duplicatas por transferência de centro de custo
+      // Query corrigida - removendo codccu da DISTINCT e sempre calculando contratações/demissões
       const realQuery = `
         SELECT 
           COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, numcpf)) as total_funcionarios,
@@ -620,12 +647,17 @@ router.get('/estatisticas', async (req, res) => {
           COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'F' THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as feminino,
           ROUND(AVG(CASE WHEN TIPCOL IN (1,3,5) THEN CAST(valsal as decimal) END), 2) as salario_medio,
           ${months && years ? `
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, EOMONTH(DATEFROMPARTS(${year}, ${month}, 1))) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
           COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND MONTH(datadm) = ${month} THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
           COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND MONTH(datafa) = ${month} THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          ` : years && years !== '' ? `
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, DATEFROMPARTS(${year}, 12, 31)) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
           ` : `
           COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, GETDATE()) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
-          0 as contratacoes_periodo,
-          0 as demissoes_periodo
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = YEAR(GETDATE()) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = YEAR(GETDATE()) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
           `}
         FROM [${MSSQL_DB}].dbo.r034fun
         ${whereClause}
