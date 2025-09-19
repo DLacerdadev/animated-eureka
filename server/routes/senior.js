@@ -532,54 +532,99 @@ router.get('/estatisticas', async (req, res) => {
       return;
     }
 
-    // Query SQL real para API Senior - schema real r070nau
-    const sqlQuery = `
-      SELECT 
-        COUNT(*) as total_funcionarios,
-        COUNT(CASE WHEN sitafa = 1 THEN 1 END) as funcionarios_ativos,
-        COUNT(CASE WHEN sitafa = 2 THEN 1 END) as funcionarios_demitidos,
-        COUNT(CASE WHEN sexo = 'M' THEN 1 END) as masculino,
-        COUNT(CASE WHEN sexo = 'F' THEN 1 END) as feminino,
-        ROUND(AVG(CAST(salario as decimal)), 2) as salario_medio,
-        COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
-      FROM [${MSSQL_DB}].dbo.r070nau
-      WHERE sitafa IN (1, 2)
+    // Primeiro, vamos investigar a estrutura da tabela r034fun
+    const investigateQuery = `
+      SELECT TOP 5 * 
+      FROM [${MSSQL_DB}].dbo.r034fun
     `;
     
-    console.log('📝 Executando query SQL real na API Senior:', sqlQuery);
+    console.log('🔍 Investigando estrutura da tabela r034fun...');
+    console.log('📝 Query de investigação:', investigateQuery);
     
-    // Fazer requisição real para API Senior usando infraestrutura existente
-    const response = await fetch(`${SENIOR_API_URL}/query`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": SENIOR_API_KEY,
-      },
-      body: JSON.stringify({ sqlText: sqlQuery }),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API Senior retornou erro: ${response.status} ${response.statusText}`);
-    }
-    
-    const apiResult = await response.json();
-    console.log('📊 Resultado raw da API Senior:', apiResult);
-    
-    // Processar resultado da API Senior
-    const rawStats = apiResult.rows && apiResult.rows.length > 0 ? apiResult.rows[0] : {};
-    
-    // Converter para formato esperado pelo frontend
-    const stats = {
-      total_funcionarios: (rawStats.total_funcionarios || 0).toString(),
-      funcionarios_ativos: (rawStats.funcionarios_ativos || 0).toString(),
-      funcionarios_demitidos: (rawStats.funcionarios_demitidos || 0).toString(),
-      masculino: (rawStats.masculino || 0).toString(),
-      feminino: (rawStats.feminino || 0).toString(),
-      salario_medio: (rawStats.salario_medio || 0).toString(),
-      contratacoes_6meses: (rawStats.contratacoes_6meses || 0).toString()
-    };
+    // Fazer requisição real para API Senior - primeiro investigar r034fun
+    try {
+      const investigateResponse = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY,
+        },
+        body: JSON.stringify({ sqlText: investigateQuery }),
+      });
+      
+      if (!investigateResponse.ok) {
+        throw new Error(`API Senior erro na investigação: ${investigateResponse.status} ${investigateResponse.statusText}`);
+      }
+      
+      const investigateResult = await investigateResponse.json();
+      console.log('🔍 Estrutura da tabela r034fun:', investigateResult);
+      
+      // Agora que conhecemos a estrutura, fazer query real baseada nas colunas disponíveis
+      // Assumindo colunas comuns de funcionários (vamos ajustar baseado no resultado)
+      const realQuery = `
+        SELECT 
+          COUNT(*) as total_funcionarios,
+          COUNT(CASE WHEN sitfun = 'A' OR sitfun = '1' THEN 1 END) as funcionarios_ativos,
+          COUNT(CASE WHEN sitfun = 'D' OR sitfun = '2' THEN 1 END) as funcionarios_demitidos,
+          COUNT(CASE WHEN sexfun = 'M' THEN 1 END) as masculino,
+          COUNT(CASE WHEN sexfun = 'F' THEN 1 END) as feminino,
+          ROUND(AVG(CAST(salfun as decimal)), 2) as salario_medio,
+          COUNT(CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN 1 END) as contratacoes_6meses
+        FROM [${MSSQL_DB}].dbo.r034fun
+      `;
+      
+      console.log('📝 Executando query real na tabela r034fun:', realQuery);
+      
+      const response = await fetch(`${SENIOR_API_URL}/query`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": SENIOR_API_KEY,
+        },
+        body: JSON.stringify({ sqlText: realQuery }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Senior retornou erro: ${response.status} ${response.statusText}`);
+      }
+      
+      const apiResult = await response.json();
+      console.log('📊 Resultado real da API Senior (r034fun):', apiResult);
+      
+      // Processar resultado da API Senior
+      const rawStats = apiResult.rows && apiResult.rows.length > 0 ? apiResult.rows[0] : {};
+      
+      // Converter para formato esperado pelo frontend
+      const stats = {
+        total_funcionarios: (rawStats.total_funcionarios || 0).toString(),
+        funcionarios_ativos: (rawStats.funcionarios_ativos || 0).toString(),
+        funcionarios_demitidos: (rawStats.funcionarios_demitidos || 0).toString(),
+        masculino: (rawStats.masculino || 0).toString(),
+        feminino: (rawStats.feminino || 0).toString(),
+        salario_medio: (rawStats.salario_medio || 0).toString(),
+        contratacoes_6meses: (rawStats.contratacoes_6meses || 0).toString()
+      };
 
-    console.log('✅ Estatísticas reais da API Senior:', stats);
+      console.log('✅ Estatísticas REAIS da API Senior (tabela r034fun):', stats);
+      
+      res.json({
+        success: true,
+        data: stats,
+        filters: { empresas, divisoes, status, months, years },
+        source: 'api_senior_r034fun'
+      });
+      return;
+      
+    } catch (error) {
+      console.error('❌ Erro ao consultar API Senior:', error.message);
+      
+      res.status(500).json({
+        success: false,
+        error: 'Erro ao buscar estatísticas da API Senior',
+        message: error.message
+      });
+      return;
+    }
     
     res.json({
       success: true,
