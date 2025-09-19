@@ -20,11 +20,31 @@ const formatPercentage = (num: number) => {
 interface KPICardsProps {
   selectedMonth?: number;
   selectedYear?: number;
+  filterParams?: {
+    months: string;
+    years: string;
+    empresas: string;
+    status: string;
+    divisoes: string;
+  };
 }
 
-export function KPICards({ selectedMonth = 9, selectedYear = 2025 }: KPICardsProps) {
+export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams }: KPICardsProps) {
   const { data: kpiData, isLoading, error } = useKPIData();
-  const { data: activeEmployees, isLoading: employeesLoading, error: employeesError } = useActiveEmployees(selectedYear, selectedMonth);
+  // Use filterParams if available, otherwise fall back to individual params
+  const queryParams = filterParams ? {
+    months: filterParams.months,
+    years: filterParams.years,
+    empresas: filterParams.empresas,
+    status: filterParams.status,
+    divisoes: filterParams.divisoes
+  } : {
+    months: selectedMonth.toString(),
+    years: selectedYear.toString(),
+    empresas: "1"
+  };
+  
+  const { data: activeEmployees, isLoading: employeesLoading, error: employeesError } = useActiveEmployees(queryParams);
 
   if (isLoading || employeesLoading) {
     return (

@@ -92,10 +92,19 @@ export function OverviewSection() {
     icon: Building
   })) || [];
   
-  // Calculate current filter values for API calls
+  // Calculate current filter values for API calls - support multiple values
   const currentMonth = selectedMonths[0] ? parseInt(selectedMonths[0]) : 9;
   const currentYear = selectedYears[0] ? parseInt(selectedYears[0]) : 2025;
   const currentEmpresa = selectedEmpresa[0] || "1";
+  
+  // Create filter query params for API
+  const filterParams = {
+    months: selectedMonths.join(','),
+    years: selectedYears.join(','),
+    empresas: selectedEmpresa.join(','),
+    status: selectedStatus.join(','),
+    divisoes: selectedDivisao.join(',')
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
@@ -280,7 +289,11 @@ export function OverviewSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <KPICards selectedMonth={currentMonth} selectedYear={currentYear} />
+          <KPICards 
+            selectedMonth={currentMonth} 
+            selectedYear={currentYear}
+            filterParams={filterParams}
+          />
         </motion.div>
       
         {/* Charts Grid - Main Charts Row */}
@@ -295,6 +308,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
           
           {/* Gender Demographics Chart */}
@@ -302,6 +316,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
         </motion.div>
         
@@ -317,6 +332,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
           
           {/* Division Chart */}
@@ -324,6 +340,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
         </motion.div>
       

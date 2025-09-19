@@ -200,10 +200,29 @@ router.post('/execute-query', async (req, res) => {
 
 router.get('/active-employees', async (req, res) => {
   try {
-    const { month = 9, year = 2025, empresa = "1" } = req.query;
+    const { 
+      months = "9", 
+      years = "2025", 
+      empresas = "1",
+      status = "",
+      divisoes = ""
+    } = req.query;
     
-    console.log(`👥 Calculando funcionários ativos com filtros BI - Opus Consultoria (empresa ${empresa}) - ${month}/${year}`);
-    console.log(`📅 Calculando para período: ${month}/${year} (fim do período: ${year}-${month.toString().padStart(2, '0')}-30)`);
+    // Parse comma-separated values
+    const monthList = months.split(',').filter(Boolean);
+    const yearList = years.split(',').filter(Boolean);
+    const empresaList = empresas.split(',').filter(Boolean);
+    const statusList = status ? status.split(',').filter(Boolean) : [];
+    const divisaoList = divisoes ? divisoes.split(',').filter(Boolean) : [];
+    
+    const month = parseInt(monthList[0]) || 9;
+    const year = parseInt(yearList[0]) || 2025;
+    const empresa = empresaList[0] || "1";
+    
+    console.log(`👥 Calculando funcionários ativos com filtros BI - Empresas: [${empresaList.join(', ')}] - Períodos: ${monthList.join('/')}-${yearList.join(',')}`);
+    if (statusList.length > 0) console.log(`🎯 Filtros Status: [${statusList.join(', ')}]`);
+    if (divisaoList.length > 0) console.log(`🏢 Filtros Divisões: [${divisaoList.join(', ')}]`);
+    console.log(`📅 Calculando para período principal: ${month}/${year} (fim do período: ${year}-${month.toString().padStart(2, '0')}-30)`);
     
     // Mock calculation with detailed logging
     const contratacoes_periodo = Math.floor(Math.random() * 50) + 20;

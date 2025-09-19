@@ -173,12 +173,21 @@ export function useTurnoverChart(ano: number = 2025, mes: number = 9) {
   });
 }
 
-// Hook específico para funcionários ativos da Opus Consultoria Ltda
-export function useActiveEmployees(ano: number = 2025, mes: number = 9) {
+// Hook específico para funcionários ativos - suporte a múltiplos filtros
+export function useActiveEmployees(queryParams: any) {
+  // Convert queryParams to URL query string
+  const params = new URLSearchParams();
+  
+  if (queryParams.months) params.set('months', queryParams.months);
+  if (queryParams.years) params.set('years', queryParams.years);
+  if (queryParams.empresas) params.set('empresas', queryParams.empresas);
+  if (queryParams.status) params.set('status', queryParams.status);
+  if (queryParams.divisoes) params.set('divisoes', queryParams.divisoes);
+  
   return useQuery({
-    queryKey: ["/api/senior/active-employees", ano, mes],
+    queryKey: ["/api/senior/active-employees", queryParams],
     queryFn: async (): Promise<{funcionarios_ativos: number; contratacoes_periodo: number; demissoes_periodo: number; fonte: string; empresa: number}> => {
-      const url = `/api/senior/active-employees?ano=${ano}&mes=${mes}`;
+      const url = `/api/senior/active-employees?${params.toString()}`;
       const response = await fetch(url, {
         headers: {
           'x-api-key': 'OpusApiKey_2025!'
