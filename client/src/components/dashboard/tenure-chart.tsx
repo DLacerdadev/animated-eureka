@@ -15,6 +15,13 @@ interface TenureChartProps {
   selectedMonth?: number;
   selectedYear?: number;
   selectedEmpresa?: string;
+  filterParams?: {
+    months: string;
+    years: string;
+    empresas: string;
+    status: string;
+    divisoes: string;
+  };
 }
 
 // Mock data baseado na imagem - será substituído por dados reais da API
@@ -27,8 +34,12 @@ const mockTenureData: TenureData[] = [
   { faixa: "Mais de 10 anos", quantidade: 37, percentual: 9.2 }
 ];
 
-export function TenureChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1" }: TenureChartProps) {
-  // TODO: Implementar hook real useTenureData(selectedYear, selectedMonth, selectedEmpresa)
+export function TenureChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: TenureChartProps) {
+  // Use filterParams if available, otherwise fall back to individual params
+  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  
+  // TODO: Implementar hook real useTenureData(year, month, selectedEmpresa)
   const isLoading = false;
   const error = null;
   const tenureData = mockTenureData;

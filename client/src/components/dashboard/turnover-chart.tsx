@@ -10,10 +10,21 @@ interface TurnoverChartProps {
   selectedMonth?: number;
   selectedYear?: number;
   selectedEmpresa?: string;
+  filterParams?: {
+    months: string;
+    years: string;
+    empresas: string;
+    status: string;
+    divisoes: string;
+  };
 }
 
-export function TurnoverChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1" }: TurnoverChartProps) {
-  const { data: turnoverData, isLoading, error } = useTurnoverChart(selectedYear, selectedMonth);
+export function TurnoverChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: TurnoverChartProps) {
+  // Use filterParams if available, otherwise fall back to individual params
+  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  
+  const { data: turnoverData, isLoading, error } = useTurnoverChart(year, month);
 
   // Se não há dados ou está carregando, mostrar estado de loading ou erro
   if (isLoading) {

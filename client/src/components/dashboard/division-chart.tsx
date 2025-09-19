@@ -15,6 +15,13 @@ interface DivisionChartProps {
   selectedMonth?: number;
   selectedYear?: number;
   selectedEmpresa?: string;
+  filterParams?: {
+    months: string;
+    years: string;
+    empresas: string;
+    status: string;
+    divisoes: string;
+  };
 }
 
 // Mock data baseado na imagem - será substituído por dados reais da API
@@ -27,8 +34,12 @@ const mockDivisionData: DivisionData[] = [
   { divisao: "Infraestrutura", quantidade: 27, percentual: 6.7 }
 ];
 
-export function DivisionChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1" }: DivisionChartProps) {
-  // TODO: Implementar hook real useDivisionData(selectedYear, selectedMonth, selectedEmpresa)
+export function DivisionChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: DivisionChartProps) {
+  // Use filterParams if available, otherwise fall back to individual params
+  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  
+  // TODO: Implementar hook real useDivisionData(year, month, selectedEmpresa)
   const isLoading = false;
   const error = null;
   const divisionData = mockDivisionData;

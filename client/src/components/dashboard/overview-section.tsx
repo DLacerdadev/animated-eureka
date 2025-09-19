@@ -312,6 +312,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
           
           {/* Gender Demographics Chart */}
@@ -319,6 +320,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
         </motion.div>
         
@@ -334,6 +336,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
           
           {/* Division Chart */}
@@ -341,6 +344,7 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
+            filterParams={filterParams}
           />
         </motion.div>
       

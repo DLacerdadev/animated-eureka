@@ -15,6 +15,13 @@ interface GenderChartProps {
   selectedMonth?: number;
   selectedYear?: number;
   selectedEmpresa?: string;
+  filterParams?: {
+    months: string;
+    years: string;
+    empresas: string;
+    status: string;
+    divisoes: string;
+  };
 }
 
 // Mock data - será substituído por dados reais da API
@@ -28,8 +35,12 @@ const COLORS = {
   'Feminino': '#EC4899'   // Pink
 };
 
-export function GenderChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1" }: GenderChartProps) {
-  // TODO: Implementar hook real useGenderData(selectedYear, selectedMonth, selectedEmpresa)
+export function GenderChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: GenderChartProps) {
+  // Use filterParams if available, otherwise fall back to individual params
+  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  
+  // TODO: Implementar hook real useGenderData(year, month, selectedEmpresa)
   const isLoading = false;
   const error = null;
   const genderData = mockGenderData;
