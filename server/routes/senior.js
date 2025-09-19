@@ -498,28 +498,40 @@ router.get('/estatisticas', async (req, res) => {
       }
     }
     
-    // Query para estatísticas agregadas
-    const query = `
-      SELECT 
-        COUNT(*) as total_funcionarios,
-        COUNT(CASE WHEN f.codigo_situacao = 1 THEN 1 END) as funcionarios_ativos,
-        COUNT(CASE WHEN f.codigo_situacao = 2 THEN 1 END) as funcionarios_demitidos,
-        COUNT(CASE WHEN f.sexo = 'Masculino' THEN 1 END) as masculino,
-        COUNT(CASE WHEN f.sexo = 'Feminino' THEN 1 END) as feminino,
-        ROUND(AVG(f.salario), 2) as salario_medio,
-        COUNT(CASE WHEN f.data_admissao >= CURRENT_DATE - INTERVAL '6 months' THEN 1 END) as contratacoes_6meses
-      FROM funcionarios f
-      LEFT JOIN companies c ON f.codigo_empresa = c.codigo_empresa
-      LEFT JOIN divisions d ON f.codigo_divisao = d.codigo_divisao  
-      LEFT JOIN employee_status es ON f.codigo_situacao = es.codigo_situacao
-      ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''};
-    `;
+    // Query simples para testar primeiro - baseada nas queries que funcionam
+    const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
+    const query = `SELECT COUNT(*) as total_funcionarios FROM [${MSSQL_DB}].dbo.r070nau WHERE sitafa = 1`;
 
-    console.log('📝 Executando query de estatísticas:', query);
+    console.log('📝 Executando query de estatísticas na API Senior:', query);
     console.log('📋 Parâmetros:', params);
     
-    const result = await sql(query, params);
-    const stats = result[0];
+    // Fazer requisição para API Senior real
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    
+    const response = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SENIOR_API_KEY,
+      },
+      body: JSON.stringify({ sqlText: query }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API Senior retornou erro: ${response.status} ${response.statusText}`);
+    }
+    
+    const apiResult = await response.json();
+    const stats = apiResult.rows && apiResult.rows.length > 0 ? apiResult.rows[0] : {
+      total_funcionarios: 0,
+      funcionarios_ativos: 0,
+      funcionarios_demitidos: 0,
+      masculino: 0,
+      feminino: 0,
+      salario_medio: 0,
+      contratacoes_6meses: 0
+    };
     
     console.log('✅ Estatísticas calculadas:', stats);
     
