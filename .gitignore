@@ -1,8 +1,23 @@
-node_modules
-dist
+# Dependências e builds
+node_modules/
+dist/
+build/
+coverage/
+.tmp/
+temp/
+*.log
+
+# IDE/OS
+.vscode/
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz.env
-.env*
-*.local
+Thumbs.db
+
+# Ferramentas/estado
+.replit/
+.local/
+.pnpm-store/
+.next/
+.turbo/
+.cache/
+.eslintcache
+*.pid
