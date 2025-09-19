@@ -583,6 +583,24 @@ router.get('/estatisticas', async (req, res) => {
         }
       }
       
+      // Aplicar filtro de empresas usando numemp (número da empresa)
+      if (empresas && empresas !== '') {
+        const empresasList = empresas.split(',')
+          .filter(e => e.trim() !== '')
+          .map(e => parseInt(e.trim()))
+          .filter(emp => !isNaN(emp) && emp > 0); // Validação de empresas
+        
+        if (empresasList.length > 0) {
+          whereConditions.push(`numemp IN (${empresasList.join(',')})`);
+          console.log('🏢 Aplicando filtro de empresas:', empresasList);
+        }
+      } else {
+        // Por padrão, incluir todas as empresas para alinhar com BI do usuário
+        const todasEmpresas = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
+        whereConditions.push(`numemp IN (${todasEmpresas.join(',')})`);
+        console.log('🏢 Aplicando filtro padrão (todas as empresas):', todasEmpresas);
+      }
+      
       // Construir cláusula WHERE
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
