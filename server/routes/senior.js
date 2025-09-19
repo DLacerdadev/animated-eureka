@@ -29,17 +29,15 @@ router.get('/companies', async (req, res) => {
   try {
     console.log('🏢 Buscando empresas reais do Senior...');
     
-    // Mapeamento real das empresas baseado nas tabelas fornecidas pelo usuário
+    // Mapeamento das 7 empresas selecionadas pelo usuário
     const companiesData = [
-      { codigo: 1, razao_social: 'OPUS CONSULTORIA LTDA', nome_fantasia: 'Opus Consultoria' },
-      { codigo: 6, razao_social: 'TELOS CONSULTORIA EMPRESARIAL LTDA', nome_fantasia: 'Telos Consultoria' },
-      { codigo: 7, razao_social: 'SEVEN TERCEIRIZACAO DE MAO DE OBRA LTDA', nome_fantasia: 'Seven Terceirização' },
-      { codigo: 8, razao_social: 'OPUS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Opus Serviços' },
-      { codigo: 9, razao_social: 'OPUS LOGISTICA LTDA', nome_fantasia: 'Opus Logística' },
-      { codigo: 10, razao_social: 'OPUS MANUTENCAO LTDA', nome_fantasia: 'Opus Manutenção' },
-      { codigo: 11, razao_social: 'ATENAS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Atenas Serviços' },
-      { codigo: 12, razao_social: 'MOSS DO BRASIL EQUIPAMENTOS LTDA', nome_fantasia: 'Moss do Brasil' },
-      { codigo: 13, razao_social: 'ACELERA IT TECNOLOGIA LTDA', nome_fantasia: 'Acelera IT' }
+      { codigo: 1, razao_social: 'OPUS CONSULTORIA LTDA', nome_fantasia: 'Opus Consultoria Ltda' },
+      { codigo: 6, razao_social: 'TELOS CONSULTORIA EMPRESARIAL LTDA', nome_fantasia: 'Telos Consultoria Empresarial' },
+      { codigo: 8, razao_social: 'OPUS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Opus Servicos Especializados' },
+      { codigo: 9, razao_social: 'OPUS LOGISTICA LTDA', nome_fantasia: 'Opus Logistica Ltda' },
+      { codigo: 10, razao_social: 'OPUS MANUTENCAO LTDA', nome_fantasia: 'Opus Manutencao Ltda' },
+      { codigo: 11, razao_social: 'ATENAS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Atenas Servicos Especializados' },
+      { codigo: 13, razao_social: 'ACELERA IT TECNOLOGIA LTDA', nome_fantasia: 'Acelera It Tecnologia Ltda' }
     ];
     
     const companies = companiesData.map(row => ({
@@ -635,14 +633,14 @@ router.get('/estatisticas', async (req, res) => {
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
       // Query corrigida - removendo codccu da DISTINCT e sempre calculando contratações/demissões
-      // Definir escopos de empresas baseado nos dados REAIS das tabelas Senior (SANITIZADO)
-      // EMPRESAS ATIVAS: 1=OPUS CONSULTORIA, 6=TELOS CONSULTORIA (match BI: 3.349 vs 3.304)
+      // Definir escopos usando apenas as 7 empresas selecionadas pelo usuário
+      // EMPRESAS ATIVAS: 1=OPUS CONSULTORIA, 6=TELOS CONSULTORIA (mantém precisão BI)
       const empresasAtivosDefault = [1, 6]; 
       
-      // TODAS EMPRESAS: Todas as 9 empresas do grupo (match BI contratações: 4.306 vs 4.194)
-      // 1=Opus Consultoria, 6=Telos, 7=Seven, 8=Opus Serviços, 9=Opus Logística, 
-      // 10=Opus Manutenção, 11=Atenas, 12=Moss Brasil, 13=Acelera IT
-      const empresasContratacaoDefault = [1, 6, 7, 8, 9, 10, 11, 12, 13];
+      // EMPRESAS PARA CONTRATAÇÕES/DEMISSÕES: Todas as 7 empresas selecionadas
+      // 1=Opus Consultoria, 6=Telos, 8=Opus Serviços, 9=Opus Logística, 
+      // 10=Opus Manutenção, 11=Atenas, 13=Acelera IT
+      const empresasContratacaoDefault = [1, 6, 8, 9, 10, 11, 13];
       
       let empresasAtivosList, empresasContratacoesList;
       
