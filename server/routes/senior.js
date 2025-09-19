@@ -590,8 +590,8 @@ router.get('/estatisticas', async (req, res) => {
       const apiResult = await response.json();
       console.log('📊 Resultado real da API Senior (r034fun):', apiResult);
       
-      // Processar resultado da API Senior
-      const rawStats = apiResult.rows && apiResult.rows.length > 0 ? apiResult.rows[0] : {};
+      // Processar resultado da API Senior - API retorna array diretamente
+      const rawStats = apiResult && apiResult.length > 0 ? apiResult[0] : {};
       
       // Converter para formato esperado pelo frontend
       const stats = {
