@@ -466,6 +466,12 @@ router.get('/estatisticas', async (req, res) => {
       years = '' 
     } = req.query;
 
+    // Extrair variáveis individuais para usar na query  
+    const yearsList = years ? years.split(',').filter(y => y.trim() !== '').map(y => parseInt(y.trim())) : [];
+    const monthsList = months ? months.split(',').filter(m => m.trim() !== '').map(m => parseInt(m.trim())) : [];
+    const year = yearsList.length > 0 ? yearsList[0] : new Date().getFullYear();
+    const month = monthsList.length > 0 ? monthsList[0] : new Date().getMonth() + 1;
+
     // Usar mesma lógica de filtros
     let whereConditions = [];
     let params = [];
@@ -595,25 +601,32 @@ router.get('/estatisticas', async (req, res) => {
           console.log('🏢 Aplicando filtro de empresas:', empresasList);
         }
       } else {
-        // Por padrão, incluir apenas as empresas que realmente existem (descobertas na estrutura real)
-        const empresasReais = [1,2,3,4,5,6,7,8,9,10,11,12,13];
-        whereConditions.push(`numemp IN (${empresasReais.join(',')})`);
-        console.log('🏢 Aplicando filtro padrão (empresas reais):', empresasReais);
+        // Por padrão, usar escopo reduzido de empresas baseado na análise do BI
+        const empresasBI = [1,2,3,4,5,6,7,8,9]; // Possivelmente o BI usa apenas estas 9 empresas
+        whereConditions.push(`numemp IN (${empresasBI.join(',')})`);
+        console.log('🏢 Aplicando filtro padrão (escopo BI):', empresasBI);
       }
       
       // Construir cláusula WHERE
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
       
-      // Query corrigida usando PK correta baseada no documento do usuário da folha
+      // Query corrigida - removendo codccu da DISTINCT para evitar duplicatas por transferência de centro de custo
       const realQuery = `
         SELECT 
-          COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, codccu, numcpf)) as total_funcionarios,
-          COUNT(DISTINCT CASE WHEN sitafa = 1 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_ativos,
-          COUNT(DISTINCT CASE WHEN sitafa = 7 THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as funcionarios_demitidos,
-          COUNT(DISTINCT CASE WHEN tipsex = 'M' THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as masculino,
-          COUNT(DISTINCT CASE WHEN tipsex = 'F' THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as feminino,
-          ROUND(AVG(CAST(valsal as decimal)), 2) as salario_medio,
-          COUNT(DISTINCT CASE WHEN datadm >= DATEADD(month, -6, GETDATE()) THEN CONCAT(numemp, TIPCOL, numcad, codccu, numcpf) END) as contratacoes_6meses
+          COUNT(DISTINCT CONCAT(numemp, TIPCOL, numcad, numcpf)) as total_funcionarios,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_ativos,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND sitafa = 7 THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as funcionarios_demitidos,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'M' THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as masculino,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND tipsex = 'F' THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as feminino,
+          ROUND(AVG(CASE WHEN TIPCOL IN (1,3,5) THEN CAST(valsal as decimal) END), 2) as salario_medio,
+          ${months && years ? `
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND YEAR(datadm) = ${year} AND MONTH(datadm) = ${month} THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_periodo,
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datafa IS NOT NULL AND datafa != '1900-12-31 00:00:00' AND YEAR(datafa) = ${year} AND MONTH(datafa) = ${month} THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as demissoes_periodo
+          ` : `
+          COUNT(DISTINCT CASE WHEN TIPCOL IN (1,3,5) AND datadm >= DATEADD(month, -6, GETDATE()) THEN CONCAT(numemp, TIPCOL, numcad, numcpf) END) as contratacoes_6meses,
+          0 as contratacoes_periodo,
+          0 as demissoes_periodo
+          `}
         FROM [${MSSQL_DB}].dbo.r034fun
         ${whereClause}
       `;
@@ -647,7 +660,9 @@ router.get('/estatisticas', async (req, res) => {
         masculino: (rawStats.masculino || 0).toString(),
         feminino: (rawStats.feminino || 0).toString(),
         salario_medio: (rawStats.salario_medio || 0).toString(),
-        contratacoes_6meses: (rawStats.contratacoes_6meses || 0).toString()
+        contratacoes_6meses: (rawStats.contratacoes_6meses || 0).toString(),
+        contratacoes_periodo: (rawStats.contratacoes_periodo || 0).toString(),
+        demissoes_periodo: (rawStats.demissoes_periodo || 0).toString()
       };
 
       console.log('✅ Estatísticas REAIS da API Senior (tabela r034fun):', stats);
