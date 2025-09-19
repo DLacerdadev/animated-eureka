@@ -37,21 +37,16 @@ const mockDivisionData: DivisionData[] = [
 
 export function DivisionChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: DivisionChartProps) {
   // Use filterParams if available, otherwise fall back to individual params
-  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
-  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  const month = filterParams?.months ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams?.years ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
   
-  // Use real filtered divisions data
-  const queryParams = filterParams ? {
-    empresas: filterParams.empresas,
-    status: filterParams.status,
-    months: filterParams.months,
-    years: filterParams.years
-  } : {
-    empresas: selectedEmpresa,
-    status: "1",
-    months: month.toString(),
-    years: year.toString()
-  };
+  // Use real filtered divisions data - build query conditionally
+  const queryParams: Record<string, string> = {};
+  
+  if (filterParams?.empresas) queryParams.empresas = filterParams.empresas;
+  if (filterParams?.status) queryParams.status = filterParams.status;
+  if (filterParams?.months) queryParams.months = filterParams.months;
+  if (filterParams?.years) queryParams.years = filterParams.years;
   
   const { data: realDivisionData, isLoading, error } = useFilteredDivisionsData(queryParams);
   

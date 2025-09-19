@@ -36,8 +36,8 @@ const mockTenureData: TenureData[] = [
 
 export function TenureChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: TenureChartProps) {
   // Use filterParams if available, otherwise fall back to individual params
-  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
-  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  const month = filterParams?.months ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams?.years ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
   
   // TODO: Implementar hook real useTenureData(year, month, selectedEmpresa)
   const isLoading = false;

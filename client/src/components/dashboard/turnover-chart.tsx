@@ -21,8 +21,8 @@ interface TurnoverChartProps {
 
 export function TurnoverChart({ selectedMonth = 9, selectedYear = 2025, selectedEmpresa = "1", filterParams }: TurnoverChartProps) {
   // Use filterParams if available, otherwise fall back to individual params
-  const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
-  const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
+  const month = filterParams?.months ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
+  const year = filterParams?.years ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
   
   const { data: turnoverData, isLoading, error } = useTurnoverChart(year, month);
 

@@ -41,8 +41,8 @@ const recentActivities = [
 ];
 
 export function OverviewSection() {
-  const [selectedMonths, setSelectedMonths] = useState<string[]>(["9"]); // Setembro
-  const [selectedYears, setSelectedYears] = useState<string[]>(["2025"]);
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // Start empty = show all
+  const [selectedYears, setSelectedYears] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
   const [selectedDivisao, setSelectedDivisao] = useState<string[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<string[]>([]);
@@ -92,32 +92,28 @@ export function OverviewSection() {
     icon: Building
   })) || [];
 
-  // Debug logs to check real data
-  console.log("🔍 DEBUG - Real data loaded:");
-  console.log("📊 Empresas:", companies?.length || 0, companies?.map(c => c.label) || []);
-  console.log("🏢 Divisões:", divisions?.length || 0, divisions?.map(d => d.label) || []);
-  console.log("⚡ Status:", employeeStatus?.length || 0, employeeStatus?.map(s => s.label) || []);
   
-  // Set default empresa when companies load
-  useEffect(() => {
-    if (empresaOptions.length > 0 && selectedEmpresa.length === 0) {
-      setSelectedEmpresa([empresaOptions[0].value]);
-    }
-  }, [empresaOptions, selectedEmpresa]);
+  // No default selections - user must choose what to filter by
   
-  // Calculate current filter values for API calls - support multiple values
-  const currentMonth = selectedMonths[0] ? parseInt(selectedMonths[0]) : 9;
-  const currentYear = selectedYears[0] ? parseInt(selectedYears[0]) : 2025;
-  const currentEmpresa = selectedEmpresa[0] || "1";
+  // Create filter query params for API - only include when values are selected
+  const filterParams: Record<string, string> = {};
   
-  // Create filter query params for API
-  const filterParams = {
-    months: selectedMonths.join(','),
-    years: selectedYears.join(','),
-    empresas: selectedEmpresa.join(','),
-    status: selectedStatus.join(','),
-    divisoes: selectedDivisao.join(',')
-  };
+  if (selectedMonths.length > 0) {
+    filterParams.months = selectedMonths.join(',');
+  }
+  if (selectedYears.length > 0) {
+    filterParams.years = selectedYears.join(',');
+  }
+  if (selectedEmpresa.length > 0) {
+    filterParams.empresas = selectedEmpresa.join(',');
+  }
+  if (selectedStatus.length > 0 && !selectedStatus.includes('todos')) {
+    filterParams.status = selectedStatus.join(',');
+  }
+  if (selectedDivisao.length > 0) {
+    filterParams.divisoes = selectedDivisao.join(',');
+  }
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
@@ -164,9 +160,9 @@ export function OverviewSection() {
                   onClick={() => {
                     setSelectedStatus([]);
                     setSelectedDivisao([]);
-                    setSelectedEmpresa(empresaOptions.length > 0 ? [empresaOptions[0].value] : []);
-                    setSelectedMonths(["9"]);
-                    setSelectedYears(["2025"]);
+                    setSelectedEmpresa([]);
+                    setSelectedMonths([]);
+                    setSelectedYears([]);
                   }}
                   className="text-gray-600 hover:text-gray-900 w-fit"
                 >
@@ -300,8 +296,6 @@ export function OverviewSection() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <KPICards 
-            selectedMonth={currentMonth} 
-            selectedYear={currentYear}
             filterParams={filterParams}
           />
         </motion.div>
@@ -315,17 +309,11 @@ export function OverviewSection() {
         >
           {/* Turnover Chart */}
           <TurnoverChart 
-            selectedMonth={currentMonth} 
-            selectedYear={currentYear} 
-            selectedEmpresa={currentEmpresa}
             filterParams={filterParams}
           />
           
           {/* Gender Demographics Chart */}
           <GenderChart 
-            selectedMonth={currentMonth} 
-            selectedYear={currentYear} 
-            selectedEmpresa={currentEmpresa}
             filterParams={filterParams}
           />
         </motion.div>
@@ -339,17 +327,11 @@ export function OverviewSection() {
         >
           {/* Tenure Chart */}
           <TenureChart 
-            selectedMonth={currentMonth} 
-            selectedYear={currentYear} 
-            selectedEmpresa={currentEmpresa}
             filterParams={filterParams}
           />
           
           {/* Division Chart */}
           <DivisionChart 
-            selectedMonth={currentMonth} 
-            selectedYear={currentYear} 
-            selectedEmpresa={currentEmpresa}
             filterParams={filterParams}
           />
         </motion.div>

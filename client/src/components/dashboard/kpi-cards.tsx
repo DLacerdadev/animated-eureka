@@ -32,18 +32,14 @@ interface KPICardsProps {
 
 export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams }: KPICardsProps) {
   const { data: kpiData, isLoading, error } = useKPIData();
-  // Use filterParams if available, otherwise fall back to individual params
-  const queryParams = filterParams ? {
-    months: filterParams.months,
-    years: filterParams.years,
-    empresas: filterParams.empresas,
-    status: filterParams.status,
-    divisoes: filterParams.divisoes
-  } : {
-    months: selectedMonth.toString(),
-    years: selectedYear.toString(),
-    empresas: "1"
-  };
+  // Build query conditionally - only include when values are selected
+  const queryParams: Record<string, string> = {};
+  
+  if (filterParams?.empresas) queryParams.empresas = filterParams.empresas;
+  if (filterParams?.divisoes) queryParams.divisoes = filterParams.divisoes;
+  if (filterParams?.status) queryParams.status = filterParams.status;
+  if (filterParams?.months) queryParams.months = filterParams.months;
+  if (filterParams?.years) queryParams.years = filterParams.years;
   
   const { data: activeEmployees, isLoading: employeesLoading, error: employeesError } = useActiveEmployees(queryParams);
   
