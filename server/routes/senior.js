@@ -342,4 +342,280 @@ router.get('/turnover-chart', async (req, res) => {
   }
 });
 
+// GET endpoint para funcionários filtrados
+router.get('/funcionarios', async (req, res) => {
+  try {
+    console.log('👥 Buscando funcionários com filtros...');
+    console.log('🔍 Query params:', req.query);
+    
+    const { 
+      empresas = '', 
+      divisoes = '', 
+      status = '', 
+      months = '', 
+      years = '' 
+    } = req.query;
+
+    // Construir condições WHERE dinamicamente
+    let whereConditions = [];
+    let params = [];
+    let paramCount = 0;
+    
+    // Filtro por empresas
+    if (empresas && empresas !== '') {
+      const empresaIds = empresas.split(',').filter(id => id.trim() !== '');
+      if (empresaIds.length > 0) {
+        const placeholders = empresaIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_empresa IN (${placeholders})`);
+        params.push(...empresaIds.map(id => parseInt(id)));
+      }
+    }
+    
+    // Filtro por divisões  
+    if (divisoes && divisoes !== '') {
+      const divisaoIds = divisoes.split(',').filter(id => id.trim() !== '');
+      if (divisaoIds.length > 0) {
+        const placeholders = divisaoIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_divisao IN (${placeholders})`);
+        params.push(...divisaoIds.map(id => parseInt(id)));
+      }
+    }
+    
+    // Filtro por status
+    if (status && status !== '' && status !== 'todos') {
+      const statusIds = status.split(',').filter(id => id.trim() !== '' && id !== 'todos');
+      if (statusIds.length > 0) {
+        const placeholders = statusIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_situacao IN (${placeholders})`);
+        params.push(...statusIds.map(id => parseInt(id)));
+      }
+    }
+    
+    // Filtro por data (anos e meses)
+    if (years && years !== '') {
+      const yearsList = years.split(',').filter(y => y.trim() !== '');
+      if (yearsList.length > 0) {
+        const yearConditions = yearsList.map(() => `EXTRACT(YEAR FROM f.data_admissao) = $${++paramCount}`);
+        whereConditions.push(`(${yearConditions.join(' OR ')})`);
+        params.push(...yearsList.map(y => parseInt(y)));
+      }
+    }
+    
+    if (months && months !== '') {
+      const monthsList = months.split(',').filter(m => m.trim() !== '');
+      if (monthsList.length > 0) {
+        const monthConditions = monthsList.map(() => `EXTRACT(MONTH FROM f.data_admissao) = $${++paramCount}`);
+        whereConditions.push(`(${monthConditions.join(' OR ')})`);
+        params.push(...monthsList.map(m => parseInt(m)));
+      }
+    }
+    
+    // Query com JOINs
+    const query = `
+      SELECT 
+        f.*,
+        c.razao_social,
+        c.nome_fantasia,
+        d.nome_divisao,
+        es.descricao_situacao,
+        es.tipo_situacao
+      FROM funcionarios f
+      LEFT JOIN companies c ON f.codigo_empresa = c.codigo_empresa
+      LEFT JOIN divisions d ON f.codigo_divisao = d.codigo_divisao  
+      LEFT JOIN employee_status es ON f.codigo_situacao = es.codigo_situacao
+      ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''}
+      ORDER BY f.nome;
+    `;
+
+    console.log('📝 Executando query:', query);
+    console.log('📋 Parâmetros:', params);
+    
+    const result = await sql(query, params);
+    
+    console.log(`✅ ${result.length} funcionários encontrados`);
+    
+    res.json({
+      success: true,
+      data: result,
+      filters: { empresas, divisoes, status, months, years },
+      count: result.length
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar funcionários:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar funcionários',
+      message: error.message
+    });
+  }
+});
+
+// GET endpoint para estatísticas filtradas
+router.get('/estatisticas', async (req, res) => {
+  try {
+    console.log('📊 Buscando estatísticas com filtros...');
+    console.log('🔍 Query params:', req.query);
+    
+    const { 
+      empresas = '', 
+      divisoes = '', 
+      status = '', 
+      months = '', 
+      years = '' 
+    } = req.query;
+
+    // Usar mesma lógica de filtros
+    let whereConditions = [];
+    let params = [];
+    let paramCount = 0;
+    
+    if (empresas && empresas !== '') {
+      const empresaIds = empresas.split(',').filter(id => id.trim() !== '');
+      if (empresaIds.length > 0) {
+        const placeholders = empresaIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_empresa IN (${placeholders})`);
+        params.push(...empresaIds.map(id => parseInt(id)));
+      }
+    }
+    
+    if (divisoes && divisoes !== '') {
+      const divisaoIds = divisoes.split(',').filter(id => id.trim() !== '');
+      if (divisaoIds.length > 0) {
+        const placeholders = divisaoIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_divisao IN (${placeholders})`);
+        params.push(...divisaoIds.map(id => parseInt(id)));
+      }
+    }
+    
+    if (status && status !== '' && status !== 'todos') {
+      const statusIds = status.split(',').filter(id => id.trim() !== '' && id !== 'todos');
+      if (statusIds.length > 0) {
+        const placeholders = statusIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_situacao IN (${placeholders})`);
+        params.push(...statusIds.map(id => parseInt(id)));
+      }
+    }
+    
+    // Query para estatísticas agregadas
+    const query = `
+      SELECT 
+        COUNT(*) as total_funcionarios,
+        COUNT(CASE WHEN f.codigo_situacao = 1 THEN 1 END) as funcionarios_ativos,
+        COUNT(CASE WHEN f.codigo_situacao = 2 THEN 1 END) as funcionarios_demitidos,
+        COUNT(CASE WHEN f.sexo = 'Masculino' THEN 1 END) as masculino,
+        COUNT(CASE WHEN f.sexo = 'Feminino' THEN 1 END) as feminino,
+        ROUND(AVG(f.salario), 2) as salario_medio,
+        COUNT(CASE WHEN f.data_admissao >= CURRENT_DATE - INTERVAL '6 months' THEN 1 END) as contratacoes_6meses
+      FROM funcionarios f
+      LEFT JOIN companies c ON f.codigo_empresa = c.codigo_empresa
+      LEFT JOIN divisions d ON f.codigo_divisao = d.codigo_divisao  
+      LEFT JOIN employee_status es ON f.codigo_situacao = es.codigo_situacao
+      ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''};
+    `;
+
+    console.log('📝 Executando query de estatísticas:', query);
+    console.log('📋 Parâmetros:', params);
+    
+    const result = await sql(query, params);
+    const stats = result[0];
+    
+    console.log('✅ Estatísticas calculadas:', stats);
+    
+    res.json({
+      success: true,
+      data: stats,
+      filters: { empresas, divisoes, status, months, years }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar estatísticas:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar estatísticas',
+      message: error.message
+    });
+  }
+});
+
+// GET endpoint para dados de divisões filtrados
+router.get('/divisoes-dados', async (req, res) => {
+  try {
+    console.log('🏢 Buscando dados de divisões com filtros...');
+    
+    const { 
+      empresas = '', 
+      status = '', 
+      months = '', 
+      years = '' 
+    } = req.query;
+
+    let whereConditions = [];
+    let params = [];
+    let paramCount = 0;
+    
+    if (empresas && empresas !== '') {
+      const empresaIds = empresas.split(',').filter(id => id.trim() !== '');
+      if (empresaIds.length > 0) {
+        const placeholders = empresaIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_empresa IN (${placeholders})`);
+        params.push(...empresaIds.map(id => parseInt(id)));
+      }
+    }
+    
+    if (status && status !== '' && status !== 'todos') {
+      const statusIds = status.split(',').filter(id => id.trim() !== '' && id !== 'todos');
+      if (statusIds.length > 0) {
+        const placeholders = statusIds.map(() => `$${++paramCount}`).join(',');
+        whereConditions.push(`f.codigo_situacao IN (${placeholders})`);
+        params.push(...statusIds.map(id => parseInt(id)));
+      }
+    }
+    
+    const query = `
+      SELECT 
+        d.nome_divisao as divisao,
+        COUNT(f.id) as quantidade,
+        ROUND(COUNT(f.id) * 100.0 / NULLIF(
+          (SELECT COUNT(*) FROM funcionarios f2 
+           LEFT JOIN companies c2 ON f2.codigo_empresa = c2.codigo_empresa
+           LEFT JOIN divisions d2 ON f2.codigo_divisao = d2.codigo_divisao
+           LEFT JOIN employee_status es2 ON f2.codigo_situacao = es2.codigo_situacao
+           ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ').replace(/f\./g, 'f2.') : ''}
+          ), 0
+        ), 1) as percentual
+      FROM divisions d
+      LEFT JOIN funcionarios f ON d.codigo_divisao = f.codigo_divisao
+      LEFT JOIN companies c ON f.codigo_empresa = c.codigo_empresa
+      LEFT JOIN employee_status es ON f.codigo_situacao = es.codigo_situacao
+      ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''}
+      GROUP BY d.codigo_divisao, d.nome_divisao
+      HAVING COUNT(f.id) > 0
+      ORDER BY quantidade DESC;
+    `;
+
+    console.log('📝 Executando query de divisões:', query);
+    
+    const result = await sql(query, params);
+    
+    console.log(`✅ ${result.length} divisões com funcionários encontradas`);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados de divisões:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar dados de divisões',
+      message: error.message
+    });
+  }
+});
+
 export default router;

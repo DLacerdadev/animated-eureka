@@ -4,6 +4,7 @@ import { MoreHorizontal, Building2, Loader2, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useFilteredDivisionsData } from "@/hooks/use-filter-data";
 
 interface DivisionData {
   divisao: string;
@@ -39,10 +40,23 @@ export function DivisionChart({ selectedMonth = 9, selectedYear = 2025, selected
   const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
   const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
   
-  // TODO: Implementar hook real useDivisionData(year, month, selectedEmpresa)
-  const isLoading = false;
-  const error = null;
-  const divisionData = mockDivisionData;
+  // Use real filtered divisions data
+  const queryParams = filterParams ? {
+    empresas: filterParams.empresas,
+    status: filterParams.status,
+    months: filterParams.months,
+    years: filterParams.years
+  } : {
+    empresas: selectedEmpresa,
+    status: "1",
+    months: month.toString(),
+    years: year.toString()
+  };
+  
+  const { data: realDivisionData, isLoading, error } = useFilteredDivisionsData(queryParams);
+  
+  // Use real data if available, otherwise fall back to mock
+  const divisionData = realDivisionData && realDivisionData.length > 0 ? realDivisionData : mockDivisionData;
 
   if (isLoading) {
     return (

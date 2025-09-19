@@ -76,4 +76,95 @@ export function useEmployeeStatus() {
   });
 }
 
+// Hook para buscar funcionários filtrados
+export function useFilteredEmployees(filterParams: {
+  empresas?: string;
+  divisoes?: string;
+  status?: string;
+  months?: string;
+  years?: string;
+}) {
+  return useQuery({
+    queryKey: ["filtered-employees", filterParams],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterParams.empresas) params.set('empresas', filterParams.empresas);
+      if (filterParams.divisoes) params.set('divisoes', filterParams.divisoes);
+      if (filterParams.status) params.set('status', filterParams.status);
+      if (filterParams.months) params.set('months', filterParams.months);
+      if (filterParams.years) params.set('years', filterParams.years);
+
+      const response = await fetch(`${API_BASE}/funcionarios?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch filtered employees");
+      }
+      const result = await response.json();
+      return result.success ? result.data : [];
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes - dados mais dinâmicos
+    retry: 2,
+    enabled: true,
+  });
+}
+
+// Hook para estatísticas filtradas
+export function useFilteredStatistics(filterParams: {
+  empresas?: string;
+  divisoes?: string;
+  status?: string;
+  months?: string;
+  years?: string;
+}) {
+  return useQuery({
+    queryKey: ["filtered-statistics", filterParams],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterParams.empresas) params.set('empresas', filterParams.empresas);
+      if (filterParams.divisoes) params.set('divisoes', filterParams.divisoes);
+      if (filterParams.status) params.set('status', filterParams.status);
+      if (filterParams.months) params.set('months', filterParams.months);
+      if (filterParams.years) params.set('years', filterParams.years);
+
+      const response = await fetch(`${API_BASE}/estatisticas?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch filtered statistics");
+      }
+      const result = await response.json();
+      return result.success ? result.data : null;
+    },
+    staleTime: 2 * 60 * 1000,
+    retry: 2,
+    enabled: true,
+  });
+}
+
+// Hook para dados de divisões filtrados
+export function useFilteredDivisionsData(filterParams: {
+  empresas?: string;
+  status?: string;
+  months?: string;
+  years?: string;
+}) {
+  return useQuery({
+    queryKey: ["filtered-divisions-data", filterParams],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterParams.empresas) params.set('empresas', filterParams.empresas);
+      if (filterParams.status) params.set('status', filterParams.status);
+      if (filterParams.months) params.set('months', filterParams.months);
+      if (filterParams.years) params.set('years', filterParams.years);
+
+      const response = await fetch(`${API_BASE}/divisoes-dados?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch filtered divisions data");
+      }
+      const result = await response.json();
+      return result.success ? result.data : [];
+    },
+    staleTime: 3 * 60 * 1000,
+    retry: 2,
+    enabled: true,
+  });
+}
+
 export type { Company, Division, EmployeeStatus };

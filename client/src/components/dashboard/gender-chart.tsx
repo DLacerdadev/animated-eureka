@@ -4,6 +4,7 @@ import { MoreHorizontal, Users, Loader2, AlertCircle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useFilteredStatistics } from "@/hooks/use-filter-data";
 
 interface GenderData {
   sexo: string;
@@ -40,10 +41,39 @@ export function GenderChart({ selectedMonth = 9, selectedYear = 2025, selectedEm
   const month = filterParams ? parseInt(filterParams.months.split(',')[0]) || selectedMonth : selectedMonth;
   const year = filterParams ? parseInt(filterParams.years.split(',')[0]) || selectedYear : selectedYear;
   
-  // TODO: Implementar hook real useGenderData(year, month, selectedEmpresa)
-  const isLoading = false;
-  const error = null;
-  const genderData = mockGenderData;
+  // Use real filtered statistics for gender data
+  const queryParams = filterParams ? {
+    empresas: filterParams.empresas,
+    divisoes: filterParams.divisoes,
+    status: filterParams.status,
+    months: filterParams.months,
+    years: filterParams.years
+  } : {
+    empresas: selectedEmpresa,
+    status: "1",
+    months: month.toString(),
+    years: year.toString()
+  };
+  
+  const { data: stats, isLoading, error } = useFilteredStatistics(queryParams);
+  
+  // Calculate gender data from real statistics
+  const totalEmployees = (stats?.masculino || 0) + (stats?.feminino || 0);
+  const realGenderData: GenderData[] = totalEmployees > 0 ? [
+    {
+      sexo: "Masculino",
+      quantidade: stats?.masculino || 0,
+      percentual: parseFloat(((stats?.masculino || 0) / totalEmployees * 100).toFixed(1))
+    },
+    {
+      sexo: "Feminino",
+      quantidade: stats?.feminino || 0,
+      percentual: parseFloat(((stats?.feminino || 0) / totalEmployees * 100).toFixed(1))
+    }
+  ] : mockGenderData;
+  
+  // Use real data if available, otherwise fall back to mock
+  const genderData = realGenderData;
 
   if (isLoading) {
     return (

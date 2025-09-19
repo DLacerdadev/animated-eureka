@@ -1,4 +1,5 @@
 import { useKPIData, useActiveEmployees } from "@/hooks/use-senior-api";
+import { useFilteredStatistics } from "@/hooks/use-filter-data";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, UserPlus, UserMinus, Clock, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
@@ -45,8 +46,11 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
   };
   
   const { data: activeEmployees, isLoading: employeesLoading, error: employeesError } = useActiveEmployees(queryParams);
+  
+  // Use real filtered statistics
+  const { data: filteredStats, isLoading: statsLoading, error: statsError } = useFilteredStatistics(queryParams);
 
-  if (isLoading || employeesLoading) {
+  if (isLoading || employeesLoading || statsLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -67,22 +71,33 @@ export function KPICards({ selectedMonth = 9, selectedYear = 2025, filterParams 
     );
   }
 
-  if (employeesError) {
+  if (employeesError || statsError) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="col-span-full">
           <CardContent className="p-6 text-center">
-            <p className="text-destructive">Erro ao carregar funcionários ativos: {employeesError.message}</p>
+            <p className="text-destructive">Erro ao carregar dados: {(employeesError || statsError)?.message}</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Use dados reais de funcionários ativos e movimentações do período
-  const totalEmployees = activeEmployees?.funcionarios_ativos || 0;
-  const hires = activeEmployees?.contratacoes_periodo || 0;
-  const terminations = activeEmployees?.demissoes_periodo || 0;
+  // Use filtered statistics if available, otherwise fall back to original data
+  const stats = filteredStats || {
+    total_funcionarios: 0,
+    funcionarios_ativos: 0,
+    funcionarios_demitidos: 0,
+    masculino: 0,
+    feminino: 0,
+    salario_medio: 0,
+    contratacoes_6meses: 0
+  };
+
+  // Use dados reais de funcionários filtrados
+  const totalEmployees = stats.funcionarios_ativos || 0;
+  const hires = stats.contratacoes_6meses || 0;
+  const terminations = stats.funcionarios_demitidos || 0;
 
   const kpis = [
     {
