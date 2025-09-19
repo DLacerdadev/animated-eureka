@@ -144,11 +144,12 @@ export function useUpdateAPIConfig() {
 }
 
 // Hook específico para dados do gráfico de turnover da Opus Consultoria Ltda
-export function useTurnoverChart() {
+export function useTurnoverChart(ano: number = 2025, mes: number = 9) {
   return useQuery({
-    queryKey: ["/api/senior/turnover-chart"],
+    queryKey: ["/api/senior/turnover-chart", ano, mes],
     queryFn: async (): Promise<TurnoverData> => {
-      const response = await fetch('/api/senior/turnover-chart', {
+      const url = `/api/senior/turnover-chart?ano=${ano}&mes=${mes}`;
+      const response = await fetch(url, {
         headers: {
           'x-api-key': 'OpusApiKey_2025!'
         }

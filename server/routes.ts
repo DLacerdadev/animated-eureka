@@ -605,18 +605,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/senior/turnover-chart", requireApiKey, async (req, res) => {
     try {
       const ano = parseInt(req.query.ano as string) || new Date().getFullYear();
+      const mes = parseInt(req.query.mes as string) || new Date().getMonth() + 1;
       const empresa = parseInt(req.query.empresa as string) || 1; // Opus Consultoria
       
-      console.log(`🏢 Turnover da Opus Consultoria (empresa ${empresa}) para ${ano} - usando catálogo RH oficial`);
+      console.log(`🏢 Turnover da Opus Consultoria (empresa ${empresa}) para ${mes}/${ano} - usando catálogo RH oficial`);
       
       // Primeira tentativa: usar tabela R034FUN (Colaborador - Ficha Básica)
       const r034Query = `
         SELECT 
-          MONTH(GETDATE()) as mes_atual,
+          ${mes} as mes_atual,
           (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE empresa = ${empresa} AND YEAR(data_admissao) = ${ano} AND MONTH(data_admissao) = MONTH(GETDATE())) as contratacoes,
+           WHERE empresa = ${empresa} AND YEAR(data_admissao) = ${ano} AND MONTH(data_admissao) = ${mes}) as contratacoes,
           (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.R034FUN 
-           WHERE empresa = ${empresa} AND YEAR(data_demissao) = ${ano} AND MONTH(data_demissao) = MONTH(GETDATE())) as demissoes,
+           WHERE empresa = ${empresa} AND YEAR(data_demissao) = ${ano} AND MONTH(data_demissao) = ${mes}) as demissoes,
           (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.R034FUN 
            WHERE empresa = ${empresa} AND (data_demissao IS NULL OR data_demissao > GETDATE())) as funcionarios_ativos
       `;
@@ -644,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               Math.round((result.demissoes / result.funcionarios_ativos) * 100 * 100) / 100 : 0;
 
             turnoverData = {
-              mes: result.mes_atual,
+              mes: mes,
               ano: ano,
               contratacoes: result.contratacoes || 0,
               demissoes: result.demissoes || 0,
@@ -662,11 +663,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!turnoverData) {
         const fallbackQuery = `
           SELECT 
-            MONTH(GETDATE()) as mes_atual,
+            ${mes} as mes_atual,
             (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
-             WHERE numemp = ${empresa} AND YEAR(datadm) = ${ano} AND MONTH(datadm) = MONTH(GETDATE())) as contratacoes,
+             WHERE numemp = ${empresa} AND YEAR(datadm) = ${ano} AND MONTH(datadm) = ${mes}) as contratacoes,
             (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
-             WHERE numemp = ${empresa} AND YEAR(datdem) = ${ano} AND MONTH(datdem) = MONTH(GETDATE())) as demissoes,
+             WHERE numemp = ${empresa} AND YEAR(datdem) = ${ano} AND MONTH(datdem) = ${mes}) as demissoes,
             (SELECT COUNT(*) FROM [${MSSQL_DB}].dbo.r350adm 
              WHERE numemp = ${empresa} AND (datdem IS NULL OR datdem > GETDATE())) as funcionarios_ativos
         `;
@@ -691,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 Math.round((result.demissoes / result.funcionarios_ativos) * 100 * 100) / 100 : 0;
 
               turnoverData = {
-                mes: result.mes_atual,
+                mes: mes,
                 ano: ano,
                 contratacoes: result.contratacoes || 0,
                 demissoes: result.demissoes || 0,
@@ -708,9 +709,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Se nenhuma consulta funcionou, retornar dados mínimos válidos
       if (!turnoverData) {
-        const mesAtual = new Date().getMonth() + 1;
         turnoverData = {
-          mes: mesAtual,
+          mes: mes,
           ano: ano,
           contratacoes: 0,
           demissoes: 0,

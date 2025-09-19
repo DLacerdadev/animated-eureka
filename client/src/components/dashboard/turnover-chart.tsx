@@ -6,8 +6,13 @@ import { useTurnoverChart } from "@/hooks/use-senior-api";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export function TurnoverChart() {
-  const { data: turnoverData, isLoading, error } = useTurnoverChart();
+interface TurnoverChartProps {
+  selectedMonth?: number;
+  selectedYear?: number;
+}
+
+export function TurnoverChart({ selectedMonth = 9, selectedYear = 2025 }: TurnoverChartProps) {
+  const { data: turnoverData, isLoading, error } = useTurnoverChart(selectedYear, selectedMonth);
 
   // Se não há dados ou está carregando, mostrar estado de loading ou erro
   if (isLoading) {

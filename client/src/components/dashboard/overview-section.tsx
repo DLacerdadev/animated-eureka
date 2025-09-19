@@ -142,7 +142,7 @@ export function OverviewSection() {
           className="grid grid-cols-1 lg:grid-cols-2 gap-8"
         >
           {/* Turnover Chart */}
-          <TurnoverChart />
+          <TurnoverChart selectedMonth={selectedMonth} selectedYear={selectedYear} />
           
           {/* Demographics Chart */}
           <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0" data-testid="chart-demographics">
