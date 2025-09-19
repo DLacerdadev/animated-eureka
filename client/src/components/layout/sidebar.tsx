@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import opusLogo from "@/assets/opus-logo.png";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -29,7 +30,6 @@ const navigationItems = [
   { icon: UserPlus, label: "Contratações", href: "/contratacoes", section: "contratacoes", color: "from-emerald-500 to-green-600" },
   { icon: UserX, label: "Desligamentos", href: "/desligamentos", section: "desligamentos", color: "from-red-500 to-rose-600" },
   { icon: TrendingUp, label: "Turnover", href: "/turnover", section: "turnover", color: "from-orange-500 to-amber-600" },
-  { icon: Building2, label: "Perfil Empresa", href: "/perfil-empresa", section: "perfil-empresa", color: "from-purple-500 to-violet-600" },
   { icon: DollarSign, label: "Folha", href: "/folha", section: "folha", color: "from-yellow-500 to-orange-600" },
   { icon: Calendar, label: "Absenteísmo", href: "/absenteismo", section: "absenteismo", color: "from-pink-500 to-rose-600" },
   { icon: CalendarX, label: "Ausências", href: "/ausencias", section: "ausencias", color: "from-cyan-500 to-blue-600" },
@@ -62,10 +62,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         transition={{ duration: 0.4, ease: "easeInOut" }}
         data-testid="sidebar"
       >
-        <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 shadow-2xl">
+        <div className="flex flex-col h-full bg-gradient-to-b from-slate-800 via-slate-900 to-slate-800 shadow-2xl">
           {/* Logo/Header */}
-          <div className="relative p-8 bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600/50">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10" />
+          <div className="relative p-8 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-600/50">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-700/30 to-slate-600/30" />
             <div className="relative flex items-center justify-between">
               <motion.div 
                 className="flex items-center space-x-4"
@@ -73,12 +73,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Sparkles className="h-6 w-6 text-white" />
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg p-2">
+                  <img src={opusLogo} alt="Opus Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">opus</h1>
-                  <p className="text-sm text-slate-400 font-medium">Dashboard RH</p>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-300 to-slate-100 bg-clip-text text-transparent">grupo opus</h1>
+                  <p className="text-sm text-slate-400 font-medium">Dashboard RH Senior</p>
                 </div>
               </motion.div>
               <button 

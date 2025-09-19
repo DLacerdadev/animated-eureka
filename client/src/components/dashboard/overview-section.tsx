@@ -130,89 +130,87 @@ export function OverviewSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white rounded-3xl shadow-lg border border-gray-200/50 p-8 w-full"
+            className="bg-white rounded-2xl shadow-lg border border-gray-200/50 p-6 w-full"
             data-testid="advanced-filters"
           >
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Header */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Filter className="h-6 w-6 text-white" />
+                  <div className="w-10 h-10 bg-gradient-to-r from-slate-600 to-slate-700 rounded-xl flex items-center justify-center shadow-lg">
+                    <Filter className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">Filtros Avançados</h3>
-                    <p className="text-sm text-gray-600 font-medium">Configure múltiplas seleções para análise personalizada</p>
+                    <h3 className="text-lg font-bold text-gray-900">Filtros Avançados</h3>
+                    <p className="text-sm text-gray-600">Seleção múltipla para análise personalizada</p>
                   </div>
                 </div>
-                <div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedStatus([]);
-                      setSelectedDivisao([]);
-                      setSelectedEmpresa(["1"]);
-                      setSelectedMonths(["9"]);
-                      setSelectedYears(["2025"]);
-                    }}
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Limpar Filtros
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedStatus([]);
+                    setSelectedDivisao([]);
+                    setSelectedEmpresa(["1"]);
+                    setSelectedMonths(["9"]);
+                    setSelectedYears(["2025"]);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 w-fit"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Limpar
+                </Button>
               </div>
               
               {/* Business Filters Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Status Funcionário */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <UserCheck className="h-5 w-5 text-gray-600" />
-                    <label className="text-sm font-bold text-gray-800">Status Funcionário</label>
-                    {loadingStatus && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                    <UserCheck className="h-4 w-4 text-gray-600" />
+                    <label className="text-sm font-semibold text-gray-800">Status</label>
+                    {loadingStatus && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
                   </div>
                   <MultiSelect
                     options={statusOptions}
                     selected={selectedStatus}
                     onChange={setSelectedStatus}
                     placeholder="Selecionar status..."
-                    className="w-full h-11"
+                    className="w-full h-10"
                     disabled={loadingStatus}
                   />
                 </div>
                 
                 {/* Divisão */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Building className="h-5 w-5 text-gray-600" />
-                    <label className="text-sm font-bold text-gray-800">Divisão</label>
-                    {loadingDivisions && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                    <Building className="h-4 w-4 text-gray-600" />
+                    <label className="text-sm font-semibold text-gray-800">Divisão</label>
+                    {loadingDivisions && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
                   </div>
                   <MultiSelect
                     options={divisaoOptions}
                     selected={selectedDivisao}
                     onChange={setSelectedDivisao}
                     placeholder="Selecionar divisões..."
-                    className="w-full h-11"
+                    className="w-full h-10"
                     disabled={loadingDivisions}
                   />
                 </div>
                 
                 {/* Empresa */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Building className="h-5 w-5 text-gray-600" />
-                    <label className="text-sm font-bold text-gray-800">Empresa</label>
-                    {loadingCompanies && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+                    <Building className="h-4 w-4 text-gray-600" />
+                    <label className="text-sm font-semibold text-gray-800">Empresa</label>
+                    {loadingCompanies && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
                   </div>
                   <MultiSelect
                     options={empresaOptions}
                     selected={selectedEmpresa}
                     onChange={setSelectedEmpresa}
                     placeholder="Selecionar empresas..."
-                    className="w-full h-11"
+                    className="w-full h-10"
                     disabled={loadingCompanies}
                     maxSelected={3}
                   />
@@ -220,40 +218,39 @@ export function OverviewSection() {
               </div>
               
               {/* Period Selection Row */}
-              <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl flex items-center justify-center">
-                    <Calendar className="h-5 w-5 text-white" />
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-slate-600 to-slate-700 rounded-lg flex items-center justify-center">
+                    <Calendar className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold text-gray-900">Período de Análise</h4>
-                    <p className="text-sm text-gray-600">Selecione múltiplos meses e anos para comparação</p>
+                    <h4 className="text-base font-semibold text-gray-900">Período de Análise</h4>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Year Selection */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-bold text-gray-800">Anos:</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-800">Anos:</label>
                     <MultiSelect
                       options={yearOptions}
                       selected={selectedYears}
                       onChange={setSelectedYears}
                       placeholder="Selecionar anos..."
-                      className="w-full h-11"
+                      className="w-full h-10"
                       maxSelected={3}
                     />
                   </div>
                   
                   {/* Month Selection */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-bold text-gray-800">Meses:</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-800">Meses:</label>
                     <MultiSelect
                       options={monthOptions}
                       selected={selectedMonths}
                       onChange={setSelectedMonths}
                       placeholder="Selecionar meses..."
-                      className="w-full h-11"
+                      className="w-full h-10"
                       maxSelected={6}
                     />
                   </div>
@@ -262,17 +259,17 @@ export function OverviewSection() {
               
               {/* Applied Filters Summary */}
               {(selectedStatus.length > 0 || selectedDivisao.length > 0 || selectedEmpresa.length > 1 || selectedMonths.length > 1 || selectedYears.length > 1) && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Filter className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-semibold text-blue-800">Filtros Aplicados:</span>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Filter className="h-3 w-3 text-slate-600" />
+                    <span className="text-xs font-semibold text-slate-700">Filtros Aplicados:</span>
                   </div>
-                  <div className="text-sm text-blue-700">
-                    {selectedStatus.length > 0 && <span>Status: {selectedStatus.length} selecionado(s) • </span>}
-                    {selectedDivisao.length > 0 && <span>Divisões: {selectedDivisao.length} selecionada(s) • </span>}
-                    {selectedEmpresa.length > 1 && <span>Empresas: {selectedEmpresa.length} selecionada(s) • </span>}
-                    {selectedMonths.length > 1 && <span>Meses: {selectedMonths.length} selecionado(s) • </span>}
-                    {selectedYears.length > 1 && <span>Anos: {selectedYears.length} selecionado(s)</span>}
+                  <div className="text-xs text-slate-600">
+                    {selectedStatus.length > 0 && <span>Status: {selectedStatus.length} • </span>}
+                    {selectedDivisao.length > 0 && <span>Divisões: {selectedDivisao.length} • </span>}
+                    {selectedEmpresa.length > 1 && <span>Empresas: {selectedEmpresa.length} • </span>}
+                    {selectedMonths.length > 1 && <span>Meses: {selectedMonths.length} • </span>}
+                    {selectedYears.length > 1 && <span>Anos: {selectedYears.length}</span>}
                   </div>
                 </div>
               )}
@@ -308,7 +305,6 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
-            filterParams={filterParams}
           />
           
           {/* Gender Demographics Chart */}
@@ -316,7 +312,6 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
-            filterParams={filterParams}
           />
         </motion.div>
         
@@ -332,7 +327,6 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
-            filterParams={filterParams}
           />
           
           {/* Division Chart */}
@@ -340,7 +334,6 @@ export function OverviewSection() {
             selectedMonth={currentMonth} 
             selectedYear={currentYear} 
             selectedEmpresa={currentEmpresa}
-            filterParams={filterParams}
           />
         </motion.div>
       

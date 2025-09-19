@@ -20,7 +20,6 @@ const pageConfig = {
   "/contratacoes": { title: "Contratações", subtitle: "Análise de Admissões e Contratações" },
   "/desligamentos": { title: "Desligamentos", subtitle: "Controle de Desligamentos" },
   "/turnover": { title: "Turnover", subtitle: "Análise de Rotatividade" },
-  "/perfil-empresa": { title: "Perfil Empresa", subtitle: "Informações e Estrutura da Empresa" },
   "/folha": { title: "Folha de Pagamento", subtitle: "Gestão de Folha e Benefícios" },
   "/absenteismo": { title: "Absenteísmo", subtitle: "Controle de Ausências" },
   "/ausencias": { title: "Ausências", subtitle: "Controle de Faltas e Licenças" },
@@ -38,7 +37,6 @@ function Router() {
       <Route path="/contratacoes" component={Contratacoes} />
       <Route path="/desligamentos" component={Desligamentos} />
       <Route path="/turnover" component={Turnover} />
-      <Route path="/perfil-empresa" component={PerfilEmpresa} />
       
       {/* Module placeholders */}
       <Route path="/folha">
