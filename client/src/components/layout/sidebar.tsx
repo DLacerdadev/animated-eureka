@@ -54,10 +54,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <motion.div 
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-80 transition-transform duration-500 ease-out md:relative md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "md:block", // Always visible on desktop
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0" // Hide on mobile only
         )}
         initial={{ x: -320 }}
-        animate={{ x: isOpen ? 0 : -320 }}
+        animate={{ x: isOpen ? 0 : window.innerWidth >= 768 ? 0 : -320 }} // Always show on desktop
         transition={{ duration: 0.4, ease: "easeInOut" }}
         data-testid="sidebar"
       >
