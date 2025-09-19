@@ -64,7 +64,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="flex flex-col h-full bg-gradient-to-b from-slate-800 via-slate-900 to-slate-800 shadow-2xl">
           {/* Logo/Header */}
-          <div className="relative p-8 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-600/50">
+          <div className="relative p-6 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-600/50">
             <div className="absolute inset-0 bg-gradient-to-r from-slate-700/30 to-slate-600/30" />
             <div className="relative flex items-center justify-between">
               <motion.div 
@@ -73,11 +73,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <div className="flex flex-col items-center space-y-3">
-                  <div className="w-20 h-20 flex items-center justify-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="w-28 h-28 flex items-center justify-center">
                     <img src={opusLogo} alt="Opus Logo" className="w-full h-full object-contain brightness-0 invert" />
                   </div>
-                  <p className="text-sm text-slate-400 font-medium text-center">Dashboard RH Senior</p>
+                  <p className="text-xs text-slate-400 font-medium text-center">Dashboard RH Senior</p>
                 </div>
               </motion.div>
               <button 
