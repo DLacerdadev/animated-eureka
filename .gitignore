@@ -1,4 +1,3 @@
-# Dependências e builds
 node_modules/
 dist/
 build/
@@ -6,13 +5,9 @@ coverage/
 .tmp/
 temp/
 *.log
-
-# IDE/OS
 .vscode/
 .DS_Store
 Thumbs.db
-
-# Ferramentas/estado
 .replit/
 .local/
 .pnpm-store/
