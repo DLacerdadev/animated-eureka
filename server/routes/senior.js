@@ -692,17 +692,30 @@ router.get('/estatisticas', async (req, res) => {
         });
       }
       
-      // 🎯 APLICAR LÓGICA DAX
+      // 🎯 APLICAR LÓGICA DAX COM FILTROS AVANÇADOS
       let totalContratados = 0;
       let funcionariosDemitidos = 0;
       let funcionariosTransferidos = 0;
+      let funcionariosAtivos = 0;  // Novo contador para funcionários ativos com filtros
       let masculino = 0;
       let feminino = 0;
       let salarios = [];
       let contratacoesPeriodo = 0;
       let demissoesPeriodo = 0;
       
+      // 🔍 Extrair filtros para aplicação
+      const empresasSelecionadas = empresas ? empresas.split(',').map(e => parseInt(e.trim())).filter(e => !isNaN(e)) : empresasDefault;
+      const statusSelecionados = status && status !== '' && status !== 'todos' ? 
+        status.split(',').map(s => parseInt(s.trim())).filter(s => !isNaN(s)) : [1]; // Default: apenas ativos
+      
+      console.log(`🏢 Filtros aplicados: Empresas ${empresasSelecionadas}, Status ${statusSelecionados}`);
+      
       for (const [chave, funcionario] of funcionarios) {
+        // 🔍 Aplicar filtro de empresa
+        const passaFiltroEmpresa = empresasSelecionadas.includes(funcionario.numemp);
+        
+        if (!passaFiltroEmpresa) continue; // Pular se não passar no filtro de empresa
+        
         // 1. Total contratados até data de referência
         if (funcionario.datadm && funcionario.datadm <= dataRef) {
           totalContratados++;
@@ -710,6 +723,13 @@ router.get('/estatisticas', async (req, res) => {
           if (funcionario.tipsex === 'M') masculino++;
           if (funcionario.tipsex === 'F') feminino++;
           if (funcionario.valsal > 0) salarios.push(funcionario.valsal);
+        }
+        
+        // 1b. Funcionários ativos (apenas status 1 + filtros)
+        const statusAtual = funcionario.sitafa;
+        if (statusSelecionados.includes(statusAtual) && 
+            (funcionario.datafa === null || funcionario.datafa > dataRef)) {
+          funcionariosAtivos++;
         }
         
         // 2. Funcionários demitidos (sitafa=7) - sem filtro motafa pois coluna não existe
@@ -726,7 +746,7 @@ router.get('/estatisticas', async (req, res) => {
           funcionariosTransferidos++;
         }
         
-        // 4. Contratações no período
+        // 4. Contratações no período (já filtradas por empresa)
         if (funcionario.datadm) {
           const dataAdmissao = funcionario.datadm;
           if (monthsList.length > 0 && yearsList.length > 0) {
@@ -743,7 +763,7 @@ router.get('/estatisticas', async (req, res) => {
           }
         }
         
-        // 5. Demissões no período
+        // 5. Demissões no período (já filtradas por empresa)
         if (funcionario.datafa) {
           const dataDesligamento = funcionario.datafa;
           if (monthsList.length > 0 && yearsList.length > 0) {
@@ -772,15 +792,18 @@ router.get('/estatisticas', async (req, res) => {
       console.log(`   Funcionários Transferidos (não identificável sem motafa): ${funcionariosTransferidos}`);
       console.log(`   ✅ FUNCIONÁRIOS ATIVOS DAX = ${funcionariosAtivosDAX}`);
       console.log(`   📊 Comparação com BI: ${funcionariosAtivosDAX} vs 3304 (diferença: ${funcionariosAtivosDAX - 3304})`);
-      console.log(`🔍 FILTROS DE PERÍODO APLICADOS:`);
+      console.log(`🔍 FILTROS APLICADOS:`);
+      console.log(`   🏢 Empresas selecionadas: ${empresasSelecionadas}`);
+      console.log(`   📊 Status selecionados: ${statusSelecionados}`);
       console.log(`   📅 Período selecionado: ${month}/${year}`);
+      console.log(`   👥 Funcionários ativos (filtrados): ${funcionariosAtivos}`);
       console.log(`   📈 Contratações no período: ${contratacoesPeriodo}`);
       console.log(`   📉 Demissões no período: ${demissoesPeriodo}`);
       
       // Converter para formato esperado pelo frontend
       const stats = {
         total_funcionarios: funcionarios.size.toString(),
-        funcionarios_ativos: funcionariosAtivosDAX.toString(),
+        funcionarios_ativos: funcionariosAtivos.toString(),  // Usar contagem filtrada
         funcionarios_demitidos: funcionariosDemitidos.toString(),
         funcionarios_transferidos: funcionariosTransferidos.toString(),
         total_contratados_ate_data: totalContratados.toString(),
