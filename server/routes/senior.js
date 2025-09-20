@@ -608,11 +608,11 @@ router.get('/estatisticas', async (req, res) => {
           `DATEFROMPARTS(${year}, 12, 31)` :
           `GETDATE()`;
       
-      // 🎯 QUERY ULTRA-SIMPLIFICADA: Buscar apenas dados brutos
+      // 🎯 QUERY ULTRA-SIMPLIFICADA: Buscar apenas dados brutos (removida coluna motafa que não existe)
       const realQuery = `
         SELECT 
           numemp, TIPCOL, numcad, numcpf, 
-          datadm, datafa, sitafa, motafa, tipsex, valsal
+          datadm, datafa, sitafa, tipsex, valsal
         FROM [${MSSQL_DB}].dbo.r034fun
         WHERE TIPCOL IN (1,3,5) AND numemp IN (1,6,8,9,10,11,13)
       `;
@@ -686,7 +686,7 @@ router.get('/estatisticas', async (req, res) => {
           datadm,
           datafa,
           sitafa: row.sitafa,
-          motafa: row.motafa,
+          // motafa: não disponível na estrutura real da tabela
           tipsex: row.tipsex,
           valsal: parseFloat(row.valsal) || 0
         });
@@ -712,17 +712,17 @@ router.get('/estatisticas', async (req, res) => {
           if (funcionario.valsal > 0) salarios.push(funcionario.valsal);
         }
         
-        // 2. Funcionários demitidos (sitafa=7 AND motafa<>6)
+        // 2. Funcionários demitidos (sitafa=7) - sem filtro motafa pois coluna não existe
         if (funcionario.sitafa === 7 && 
             funcionario.datafa && funcionario.datafa <= dataRef &&
-            (funcionario.motafa !== 6)) {
+            true) { // Sem filtro motafa pois coluna não existe
           funcionariosDemitidos++;
         }
         
-        // 3. Funcionários transferidos (sitafa=7 AND motafa=6)
+        // 3. Funcionários transferidos - lógica adaptada sem motafa
         if (funcionario.sitafa === 7 && 
             funcionario.datafa && funcionario.datafa <= dataRef &&
-            funcionario.motafa === 6) {
+            false) { // Transferências não podem ser identificadas sem motafa
           funcionariosTransferidos++;
         }
         
@@ -746,8 +746,8 @@ router.get('/estatisticas', async (req, res) => {
       
       console.log('🎯 CÁLCULO DAX REALIZADO:');
       console.log(`   Total Contratados até ${dataRef.toISOString().split('T')[0]}: ${totalContratados}`);
-      console.log(`   Funcionários Demitidos (sitafa=7, motafa<>6): ${funcionariosDemitidos}`);
-      console.log(`   Funcionários Transferidos (sitafa=7, motafa=6): ${funcionariosTransferidos}`);
+      console.log(`   Funcionários Demitidos (sitafa=7): ${funcionariosDemitidos}`);
+      console.log(`   Funcionários Transferidos (não identificável sem motafa): ${funcionariosTransferidos}`);
       console.log(`   ✅ FUNCIONÁRIOS ATIVOS DAX = ${funcionariosAtivosDAX}`);
       console.log(`   📊 Comparação com BI: ${funcionariosAtivosDAX} vs 3304 (diferença: ${funcionariosAtivosDAX - 3304})`);
       
