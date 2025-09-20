@@ -433,35 +433,30 @@ router.get('/estatisticas', async (req, res) => {
     const year = yearsList.length > 0 ? yearsList[0] : new Date().getFullYear();
     const month = monthsList.length > 0 ? monthsList[0] : new Date().getMonth() + 1;
 
-    // Usar mesma lógica de filtros
+    // Usar mesma lógica de filtros (SQL Server - valores diretos)
     let whereConditions = [];
-    let params = [];
-    let paramCount = 0;
     
     if (empresas && empresas !== '') {
       const empresaIds = empresas.split(',').filter(id => id.trim() !== '');
       if (empresaIds.length > 0) {
-        const placeholders = empresaIds.map(() => `$${++paramCount}`).join(',');
-        whereConditions.push(`f.codigo_empresa IN (${placeholders})`);
-        params.push(...empresaIds.map(id => parseInt(id)));
+        const empresaValues = empresaIds.map(id => parseInt(id)).join(',');
+        whereConditions.push(`f.codigo_empresa IN (${empresaValues})`);
       }
     }
     
     if (divisoes && divisoes !== '') {
       const divisaoIds = divisoes.split(',').filter(id => id.trim() !== '');
       if (divisaoIds.length > 0) {
-        const placeholders = divisaoIds.map(() => `$${++paramCount}`).join(',');
-        whereConditions.push(`f.codigo_divisao IN (${placeholders})`);
-        params.push(...divisaoIds.map(id => parseInt(id)));
+        const divisaoValues = divisaoIds.map(id => parseInt(id)).join(',');
+        whereConditions.push(`f.codigo_divisao IN (${divisaoValues})`);
       }
     }
     
     if (status && status !== '' && status !== 'todos') {
       const statusIds = status.split(',').filter(id => id.trim() !== '' && id !== 'todos');
       if (statusIds.length > 0) {
-        const placeholders = statusIds.map(() => `$${++paramCount}`).join(',');
-        whereConditions.push(`f.codigo_situacao IN (${placeholders})`);
-        params.push(...statusIds.map(id => parseInt(id)));
+        const statusValues = statusIds.map(id => parseInt(id)).join(',');
+        whereConditions.push(`f.codigo_situacao IN (${statusValues})`);
       }
     }
     
