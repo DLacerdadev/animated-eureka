@@ -614,7 +614,7 @@ router.get('/estatisticas', async (req, res) => {
           numemp, TIPCOL, numcad, numcpf, 
           datadm, datafa, sitafa, motafa, tipsex, valsal
         FROM [${MSSQL_DB}].dbo.r034fun
-        WHERE TIPCOL IN (1,3,5) AND numemp IN (${empresasAtivos})
+        WHERE TIPCOL IN (1,3,5) AND numemp IN (1,6,8,9,10,11,13)
       `;
       
       console.log('📝 Executando query real na tabela r034fun:', realQuery);
