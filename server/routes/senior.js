@@ -231,152 +231,32 @@ router.get('/sample-employee', async (req, res) => {
 
 // GET endpoint to fetch all companies
 router.get('/companies', async (req, res) => {
-  try {
-    console.log('🏢 Buscando empresas reais do Senior...');
-    
-    // Mapeamento das 7 empresas selecionadas pelo usuário
-    const companiesData = [
-      { codigo: 1, razao_social: 'OPUS CONSULTORIA LTDA', nome_fantasia: 'Opus Consultoria Ltda' },
-      { codigo: 6, razao_social: 'TELOS CONSULTORIA EMPRESARIAL LTDA', nome_fantasia: 'Telos Consultoria Empresarial' },
-      { codigo: 8, razao_social: 'OPUS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Opus Servicos Especializados' },
-      { codigo: 9, razao_social: 'OPUS LOGISTICA LTDA', nome_fantasia: 'Opus Logistica Ltda' },
-      { codigo: 10, razao_social: 'OPUS MANUTENCAO LTDA', nome_fantasia: 'Opus Manutencao Ltda' },
-      { codigo: 11, razao_social: 'ATENAS SERVICOS ESPECIALIZADOS LTDA', nome_fantasia: 'Atenas Servicos Especializados' },
-      { codigo: 13, razao_social: 'ACELERA IT TECNOLOGIA LTDA', nome_fantasia: 'Acelera It Tecnologia Ltda' }
-    ];
-    
-    const companies = companiesData.map(row => ({
-      id: row.codigo.toString(),
-      codigo: row.codigo,
-      razao_social: row.razao_social,
-      nome_fantasia: row.nome_fantasia,
-      cnpj: '', // Não fornecido nas imagens
-      situacao: 1,
-      label: row.nome_fantasia
-    }));
-
-    console.log(`✅ ${companies.length} empresas reais encontradas:`, companies.slice(0, 3).map(c => c.label));
-    logRequest('companies', true);
-    
-    res.json({
-      success: true,
-      data: companies
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao buscar empresas:', error.message);
-    logRequest('companies', false);
-    
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao buscar empresas',
-      message: error.message
-    });
-  }
+  console.log('❌ Endpoint removido - dados hardcoded não permitidos');
+  res.status(410).json({
+    success: false,
+    error: 'Endpoint descontinuado',
+    message: 'Dados de empresas devem vir apenas da API Senior'
+  });
 });
 
 // GET endpoint to fetch all divisions
 router.get('/divisions', async (req, res) => {
-  try {
-    console.log('🏢 Buscando divisões reais do Senior...');
-    
-    // Mapeamento real das divisões baseado nas tabelas fornecidas pelo usuário
-    const divisionsData = [
-      { codigo: 1, descricao: 'Ceo' },
-      { codigo: 2, descricao: 'Administração' },
-      { codigo: 3, descricao: 'Comercial' },
-      { codigo: 4, descricao: 'Industrial' },
-      { codigo: 5, descricao: 'Telos' },
-      { codigo: 6, descricao: 'Facilites' },
-      { codigo: 7, descricao: 'Engenharia' },
-      { codigo: 8, descricao: 'Manutenção' },
-      { codigo: 9, descricao: 'Mobilidade' },
-      { codigo: 10, descricao: 'Acelera It' },
-      { codigo: 11, descricao: 'Novos Neg - Meta Com' },
-      { codigo: 12, descricao: 'Inativos - Comercial' },
-      { codigo: 13, descricao: 'Gerenciais / Prospecção' },
-      { codigo: 99, descricao: 'Atenas' }
-    ];
-    
-    const divisions = divisionsData.map(row => ({
-      id: row.codigo.toString(),
-      codigo: row.codigo,
-      descricao: row.descricao,
-      codigo_empresa: null, // Não especificado nas imagens
-      label: row.descricao
-    }));
-
-    console.log(`✅ ${divisions.length} divisões reais encontradas:`, divisions.slice(0, 3).map(d => d.label));
-    logRequest('divisions', true);
-    
-    res.json({
-      success: true,
-      data: divisions
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao buscar divisões:', error.message);
-    logRequest('divisions', false);
-    
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao buscar divisões',
-      message: error.message
-    });
-  }
+  console.log('❌ Endpoint removido - dados hardcoded não permitidos');
+  res.status(410).json({
+    success: false,
+    error: 'Endpoint descontinuado',
+    message: 'Dados de divisões devem vir apenas da API Senior'
+  });
 });
 
 // GET endpoint to fetch employee status types
 router.get('/employee-status', async (req, res) => {
-  try {
-    console.log('👥 Buscando tipos de situação de funcionários...');
-    console.log('🔧 DATABASE_URL disponível:', !!process.env.DATABASE_URL);
-    
-    const query = `
-      SELECT DISTINCT 
-        codigo_situacao,
-        descricao_situacao,
-        tipo_situacao
-      FROM employee_status 
-      ORDER BY codigo_situacao;
-    `;
-
-    logRequest('employee_status', true);
-    
-    const result = await sql(query);
-    
-    const statuses = result.map(row => ({
-      id: row.codigo_situacao.toString(),
-      codigo: row.codigo_situacao,
-      descricao: row.descricao_situacao?.trim() || '',
-      tipo: row.tipo_situacao?.trim() || '',
-      label: row.descricao_situacao?.trim() || `Status ${row.codigo_situacao}`
-    }));
-
-    // Add "All" option
-    statuses.unshift({
-      id: 'todos',
-      codigo: null,
-      label: 'Todos'
-    });
-
-    console.log(`✅ ${statuses.length} status encontrados:`, statuses.map(s => s.label));
-    
-    res.json({
-      success: true,
-      data: statuses
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao buscar status de funcionários:', error.message);
-    logRequest('employee_status', false);
-    
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao buscar status de funcionários',
-      message: error.message
-    });
-  }
+  console.log('❌ Endpoint removido - dados locais não permitidos');
+  res.status(410).json({
+    success: false,
+    error: 'Endpoint descontinuado',
+    message: 'Dados de status devem vir apenas da API Senior'
+  });
 });
 
 // Existing endpoints...
@@ -593,28 +473,11 @@ router.get('/estatisticas', async (req, res) => {
     const MSSQL_DB = process.env.MSSQL_DB || 'opus_hcm_221123';
     
     if (!SENIOR_API_KEY) {
-      console.log('⚠️ SENIOR_API_KEY não configurada - usando fallback banco local');
-      // Fallback para dados do banco local
-      const localQuery = `
-        SELECT 
-          COUNT(*) as total_funcionarios,
-          COUNT(CASE WHEN f.codigo_situacao = 1 THEN 1 END) as funcionarios_ativos,
-          COUNT(CASE WHEN f.codigo_situacao = 2 THEN 1 END) as funcionarios_demitidos,
-          COUNT(CASE WHEN f.sexo = 'Masculino' THEN 1 END) as masculino,
-          COUNT(CASE WHEN f.sexo = 'Feminino' THEN 1 END) as feminino,
-          ROUND(AVG(f.salario), 2) as salario_medio,
-          COUNT(CASE WHEN f.data_admissao >= CURRENT_DATE - INTERVAL '6 months' THEN 1 END) as contratacoes_6meses
-        FROM funcionarios f
-        ${whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : ''}
-      `;
-      const localResult = await sql(localQuery, params);
-      const stats = localResult[0] || {};
-      console.log('✅ Estatísticas locais calculadas:', stats);
-      
-      res.json({
-        success: true,
-        data: stats,
-        filters: { empresas, divisoes, status, months, years }
+      console.error('❌ SENIOR_API_KEY não configurada');
+      res.status(500).json({
+        success: false,
+        error: 'SENIOR_API_KEY não configurada',
+        message: 'Configuração da API Senior necessária para obter dados reais'
       });
       return;
     }
