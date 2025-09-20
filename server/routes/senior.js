@@ -628,9 +628,31 @@ router.get('/estatisticas', async (req, res) => {
         body: JSON.stringify({ sqlText: realQuery }),
       });
       
+      console.log('📊 Status da resposta Senior API:', response.status, response.statusText);
+      console.log('📊 Headers da resposta:', Object.fromEntries(response.headers));
+      
       if (!response.ok) {
+        // Capturar o corpo da resposta de erro para análise detalhada
+        let errorBody;
+        try {
+          const errorText = await response.text();
+          console.log('❌ Corpo da resposta de erro (texto):', errorText);
+          
+          // Tentar parsear como JSON
+          try {
+            errorBody = JSON.parse(errorText);
+            console.log('❌ Corpo da resposta de erro (JSON):', errorBody);
+          } catch {
+            console.log('❌ Resposta de erro não é JSON válido');
+            errorBody = errorText;
+          }
+        } catch (readError) {
+          console.log('❌ Erro ao ler corpo da resposta:', readError.message);
+          errorBody = 'Não foi possível ler o corpo da resposta';
+        }
+        
         console.log(`⚠️ API Senior falhou (${response.status}), tentando fallback local...`);
-        throw new Error(`API Senior retornou erro: ${response.status} ${response.statusText}`);
+        throw new Error(`API Senior retornou erro: ${response.status} ${response.statusText} - ${typeof errorBody === 'string' ? errorBody : JSON.stringify(errorBody)}`);
       }
       
       const apiResult = await response.json();
@@ -1224,6 +1246,103 @@ router.get('/teste-estrutura-folha', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao testar estrutura de folha',
+      message: error.message
+    });
+  }
+});
+
+// GET endpoint de teste para verificar conectividade com Senior API
+router.get('/test-connection', async (req, res) => {
+  try {
+    console.log('🔍 Testando conectividade básica com Senior API...');
+    
+    const SENIOR_API_URL = process.env.SENIOR_API_URL || "https://api-senior.tecnologiagrupoopus.com.br";
+    const SENIOR_API_KEY = process.env.SENIOR_API_KEY;
+    const MSSQL_DB = process.env.MSSQL_DB || "opus_hcm_221123";
+
+    if (!SENIOR_API_KEY) {
+      return res.status(401).json({
+        success: false,
+        error: 'API key não configurada'
+      });
+    }
+
+    // 1. Teste básico - listar tabelas do banco
+    console.log('📋 Teste 1: Listando tabelas do banco...');
+    const testQuery1 = `SELECT TOP 5 TABLE_NAME FROM [${MSSQL_DB}].INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`;
+    
+    const response1 = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SENIOR_API_KEY
+      },
+      body: JSON.stringify({ sqlText: testQuery1 })
+    });
+    
+    console.log('📊 Status da resposta do teste 1:', response1.status);
+    
+    if (!response1.ok) {
+      const errorText = await response1.text();
+      console.log('❌ Erro no teste 1:', errorText);
+      throw new Error(`Teste 1 falhou: ${response1.status} - ${errorText}`);
+    }
+    
+    const result1 = await response1.json();
+    console.log('✅ Teste 1 bem-sucedido:', result1);
+
+    // 2. Teste específico da tabela r034fun
+    console.log('📋 Teste 2: Verificando estrutura da r034fun...');
+    const testQuery2 = `SELECT TOP 1 * FROM [${MSSQL_DB}].dbo.r034fun`;
+    
+    const response2 = await fetch(`${SENIOR_API_URL}/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SENIOR_API_KEY
+      },
+      body: JSON.stringify({ sqlText: testQuery2 })
+    });
+    
+    console.log('📊 Status da resposta do teste 2:', response2.status);
+    
+    let result2 = null;
+    if (response2.ok) {
+      result2 = await response2.json();
+      console.log('✅ Teste 2 bem-sucedido:', result2);
+    } else {
+      const errorText = await response2.text();
+      console.log('❌ Erro no teste 2:', errorText);
+      result2 = { error: `${response2.status} - ${errorText}` };
+    }
+
+    res.json({
+      success: true,
+      tests: {
+        conectividade_basica: {
+          status: 'success',
+          query: testQuery1,
+          resultado: result1
+        },
+        tabela_r034fun: {
+          status: response2.ok ? 'success' : 'failed',
+          query: testQuery2,
+          resultado: result2
+        }
+      },
+      diagnostico: {
+        api_url: SENIOR_API_URL,
+        database: MSSQL_DB,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro no teste de conectividade:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro no teste de conectividade',
       message: error.message
     });
   }
