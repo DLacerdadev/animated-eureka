@@ -727,15 +727,37 @@ router.get('/estatisticas', async (req, res) => {
         }
         
         // 4. Contratações no período
-        if (funcionario.datadm && 
-            funcionario.datadm.getFullYear() === (year || new Date().getFullYear())) {
-          contratacoesPeriodo++;
+        if (funcionario.datadm) {
+          const dataAdmissao = funcionario.datadm;
+          if (monthsList.length > 0 && yearsList.length > 0) {
+            // Filtro específico por mês/ano
+            if (dataAdmissao.getFullYear() === year && 
+                dataAdmissao.getMonth() + 1 === month) {
+              contratacoesPeriodo++;
+            }
+          } else if (yearsList.length > 0) {
+            // Filtro apenas por ano
+            if (dataAdmissao.getFullYear() === year) {
+              contratacoesPeriodo++;
+            }
+          }
         }
         
         // 5. Demissões no período
-        if (funcionario.datafa && 
-            funcionario.datafa.getFullYear() === (year || new Date().getFullYear())) {
-          demissoesPeriodo++;
+        if (funcionario.datafa) {
+          const dataDesligamento = funcionario.datafa;
+          if (monthsList.length > 0 && yearsList.length > 0) {
+            // Filtro específico por mês/ano
+            if (dataDesligamento.getFullYear() === year && 
+                dataDesligamento.getMonth() + 1 === month) {
+              demissoesPeriodo++;
+            }
+          } else if (yearsList.length > 0) {
+            // Filtro apenas por ano
+            if (dataDesligamento.getFullYear() === year) {
+              demissoesPeriodo++;
+            }
+          }
         }
       }
       
@@ -750,6 +772,10 @@ router.get('/estatisticas', async (req, res) => {
       console.log(`   Funcionários Transferidos (não identificável sem motafa): ${funcionariosTransferidos}`);
       console.log(`   ✅ FUNCIONÁRIOS ATIVOS DAX = ${funcionariosAtivosDAX}`);
       console.log(`   📊 Comparação com BI: ${funcionariosAtivosDAX} vs 3304 (diferença: ${funcionariosAtivosDAX - 3304})`);
+      console.log(`🔍 FILTROS DE PERÍODO APLICADOS:`);
+      console.log(`   📅 Período selecionado: ${month}/${year}`);
+      console.log(`   📈 Contratações no período: ${contratacoesPeriodo}`);
+      console.log(`   📉 Demissões no período: ${demissoesPeriodo}`);
       
       // Converter para formato esperado pelo frontend
       const stats = {
