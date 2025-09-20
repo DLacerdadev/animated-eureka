@@ -401,147 +401,21 @@ router.post('/execute-query', async (req, res) => {
 });
 
 router.get('/active-employees', async (req, res) => {
-  try {
-    const { 
-      months = "9", 
-      years = "2025", 
-      empresas = "1",
-      status = "",
-      divisoes = ""
-    } = req.query;
-    
-    // Parse comma-separated values
-    const monthList = months.split(',').filter(Boolean);
-    const yearList = years.split(',').filter(Boolean);
-    const empresaList = empresas.split(',').filter(Boolean);
-    const statusList = status ? status.split(',').filter(Boolean) : [];
-    const divisaoList = divisoes ? divisoes.split(',').filter(Boolean) : [];
-    
-    const month = parseInt(monthList[0]) || 9;
-    const year = parseInt(yearList[0]) || 2025;
-    const empresa = empresaList[0] || "1";
-    
-    console.log(`👥 Calculando funcionários ativos com filtros BI - Empresas: [${empresaList.join(', ')}] - Períodos: ${monthList.join('/')}-${yearList.join(',')}`);
-    if (statusList.length > 0) console.log(`🎯 Filtros Status: [${statusList.join(', ')}]`);
-    if (divisaoList.length > 0) console.log(`🏢 Filtros Divisões: [${divisaoList.join(', ')}]`);
-    console.log(`📅 Calculando para período principal: ${month}/${year} (fim do período: ${year}-${month.toString().padStart(2, '0')}-30)`);
-    
-    // Mock calculation with detailed logging
-    const contratacoes_periodo = Math.floor(Math.random() * 50) + 20;
-    const demissoes_periodo = Math.floor(Math.random() * 30) + 10;
-    const funcionarios_ativos = Math.floor(Math.random() * 100) + 350;
-    
-    console.log(`🏢 Turnover da Opus Consultoria (empresa ${empresa}) para ${month}/${year} - usando catálogo RH oficial`);
-    
-    const mockData = {
-      contratacoes_periodo,
-      demissoes_periodo,
-      funcionarios_ativos,
-      total_admitidos_hibrido: funcionarios_ativos + 4000 + Math.floor(Math.random() * 1000),
-      total_demitidos_ate_data: funcionarios_ativos + 3500 + Math.floor(Math.random() * 1000),
-      funcionarios_antiga_logica: funcionarios_ativos,
-      funcionarios_tipcol_3_5: 0,
-      empresas_distintas: 9,
-      funcionarios_todas_9_empresas: funcionarios_ativos * 6 + Math.floor(Math.random() * 500),
-      funcionarios_empresas_1_2_3: funcionarios_ativos,
-      transferidos_periodo: 43,
-      recontratados_mes: Math.floor(Math.random() * 50) + 20,
-      demitidos_ultimo_dia: Math.floor(Math.random() * 3),
-      funcionarios_outras_empresas: funcionarios_ativos * 6 + Math.floor(Math.random() * 1000),
-      com_sitafa_1: funcionarios_ativos,
-      so_datafa_null: 0,
-      sitafa_1_datafa_null: 0
-    };
-
-    console.log('👥 Dados com fórmulas DAX:', [mockData]);
-    
-    // Log detailed diagnostics
-    const diagnostics = [
-      `⚙️ Ano ${year}: tipcol IN (1,3,5) + sem sitafa`,
-      `✅ Funcionários ativos (lógica híbrida): ${mockData.funcionarios_ativos}`,
-      `📊 Funcionários lógica antiga (sem último dia): ${mockData.funcionarios_antiga_logica}`,
-      `👥 Funcionários tipcol IN (3,5): ${mockData.funcionarios_tipcol_3_5} (estagiários/temporários)`,
-      `🗓️ Demitidos ÚLTIMO DIA: ${mockData.demitidos_ultimo_dia}`,
-      `🏢 Empresas distintas: ${mockData.empresas_distintas}`
-    ];
-    
-    console.log(`🔍 DIAGNÓSTICOS LÓGICA HÍBRIDA COMPLETA (${month}/${year}):`);
-    diagnostics.forEach(diag => console.log(diag));
-    
-    console.log('🔍 TESTE AGREGAÇÃO DE EMPRESAS:');
-    console.log(`🏭 TODAS as 9 empresas: ${mockData.funcionarios_todas_9_empresas}`);
-    console.log(`🏢 Empresas 1,2,3 (grupo?): ${mockData.funcionarios_empresas_1_2_3}`);
-    console.log(`🏗️ Apenas empresa ${empresa} (atual): ${mockData.funcionarios_ativos}`);
-    
-    console.log('🔍 INVESTIGAÇÃO TRANSFERÊNCIAS E RECONTRATAÇÕES:');
-    console.log(`🔄 Transferidos período (código 6): ${mockData.transferidos_periodo}`);
-    console.log(`🔁 Recontratados no mês: ${mockData.recontratados_mes}`);
-    console.log('🎯 BI Esperado: 441');
-    console.log(`🔄 Diferença para o alvo: ${441 - mockData.funcionarios_ativos}`);
-    
-    const timestamp = new Date().toLocaleTimeString('pt-BR', { 
-      hour12: false, 
-      timeZone: 'America/Sao_Paulo' 
-    });
-    
-    console.log(`${timestamp} [express] GET /api/senior/active-employees 200 in ${Math.floor(Math.random() * 1000) + 200}ms :: success=true`);
-
-    res.json({
-      success: true,
-      data: mockData
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao buscar funcionários ativos:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao buscar funcionários ativos',
-      message: error.message
-    });
-  }
+  console.log('❌ Endpoint removido - use /estatisticas para dados reais da API Senior');
+  res.status(410).json({
+    success: false,
+    error: 'Endpoint descontinuado',
+    message: 'Use /estatisticas para obter dados reais da API Senior'
+  });
 });
 
 router.get('/turnover-chart', async (req, res) => {
-  try {
-    const { year = 2025, empresa = "1" } = req.query;
-    
-    // Generate mock monthly data for turnover chart
-    const months = Array.from({length: 12}, (_, i) => i + 1);
-    const mockChartData = months.map(month => {
-      const contratacoes = Math.floor(Math.random() * 80) + 20;
-      const demissoes = Math.floor(Math.random() * 60) + 10;
-      const funcionarios_ativos = Math.floor(Math.random() * 100) + 350;
-      
-      return {
-        mes_atual: month,
-        contratacoes,
-        demissoes,
-        funcionarios_ativos
-      };
-    });
-
-    console.log('📊 Dados r350adm (fallback):', mockChartData.slice(0, 1));
-    
-    const timestamp = new Date().toLocaleTimeString('pt-BR', { 
-      hour12: false, 
-      timeZone: 'America/Sao_Paulo' 
-    });
-    
-    console.log(`${timestamp} [express] GET /api/senior/turnover-chart 200 in ${Math.floor(Math.random() * 1500) + 200}ms :: success=true`);
-
-    res.json({
-      success: true,
-      data: mockChartData
-    });
-
-  } catch (error) {
-    console.error('❌ Erro ao buscar dados do gráfico de turnover:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Erro ao buscar dados do gráfico',
-      message: error.message
-    });
-  }
+  console.log('❌ Endpoint removido - dados mock não permitidos');
+  res.status(410).json({
+    success: false,
+    error: 'Endpoint descontinuado',
+    message: 'Endpoint com dados fictícios foi removido - use apenas dados reais da API Senior'
+  });
 });
 
 // GET endpoint para funcionários filtrados
@@ -1024,58 +898,10 @@ router.get('/estatisticas', async (req, res) => {
       
     } catch (error) {
       console.error('❌ Erro ao consultar API Senior:', error.message);
-      
-      // 🎯 FALLBACK ROBUSTO: Usar dados da última consulta bem-sucedida
-      console.log('🔄 API Senior indisponível, usando dados DAX conhecidos...');
-      
-      // 🎯 Calcular dados proporcionais baseados nos filtros selecionados
-      const empresasAplicadas = empresas && empresas.length > 0 ? 
-        empresas.split(',').map(e => parseInt(e.trim())).filter(e => !isNaN(e)) : 
-        empresasDefault;
-      const numEmpresasAplicadas = empresasAplicadas.length;
-      const numEmpresasDefault = empresasDefault.length; // 7 empresas
-      
-      // Dados base REAIS das 7 empresas (baseados nos dados coletados da API Senior)
-      const dadosBase7Empresas = {
-        total_funcionarios: 2503,  // Dados reais coletados: todas as empresas
-        funcionarios_ativos: 2503,  // Dados reais: funcionarios_todas_9_empresas reduzido para 7 empresas
-        funcionarios_demitidos: 800,  // Proporção estimada baseada nos dados reais
-        funcionarios_transferidos: 43,  // Dados reais: transferidos_periodo
-        total_contratados_ate_data: 2503,  // Total acumulado histórico
-        masculino: 1502,  // ~60% dos funcionários
-        feminino: 1001,   // ~40% dos funcionários
-        contratacoes_periodo: 189,  // 27 * 7 empresas (27 por empresa em média)
-        demissoes_periodo: 126,     // 18 * 7 empresas (18 por empresa em média)
-        contratacoes_6meses: 567    // 189 * 3 (estimativa 3 vezes em 6 meses)
-      };
-      
-      // Calcular proporção se empresas específicas foram selecionadas
-      const proporcao = numEmpresasAplicadas / numEmpresasDefault;
-      
-      const statsDAXFallback = {
-        total_funcionarios: Math.round(dadosBase7Empresas.total_funcionarios * proporcao).toString(),
-        funcionarios_ativos: Math.round(dadosBase7Empresas.funcionarios_ativos * proporcao).toString(),
-        funcionarios_demitidos: Math.round(dadosBase7Empresas.funcionarios_demitidos * proporcao).toString(),
-        funcionarios_transferidos: Math.round(dadosBase7Empresas.funcionarios_transferidos * proporcao).toString(),
-        total_contratados_ate_data: Math.round(dadosBase7Empresas.total_contratados_ate_data * proporcao).toString(),
-        masculino: Math.round(dadosBase7Empresas.masculino * proporcao).toString(),
-        feminino: Math.round(dadosBase7Empresas.feminino * proporcao).toString(),
-        salario_medio: '2270.45', // Mantém média salarial
-        contratacoes_6meses: Math.round(dadosBase7Empresas.contratacoes_6meses * proporcao).toString(),
-        contratacoes_periodo: Math.round(dadosBase7Empresas.contratacoes_periodo * proporcao).toString(),
-        demissoes_periodo: Math.round(dadosBase7Empresas.demissoes_periodo * proporcao).toString()
-      };
-      
-      console.log(`✅ FALLBACK ATIVO: Dados ajustados para ${numEmpresasAplicadas} empresa(s) selecionada(s)`);
-      console.log('🏢 Empresas aplicadas:', empresasAplicadas);
-      console.log(`📊 Funcionários Ativos DAX (fallback): ${statsDAXFallback.funcionarios_ativos} (proporção: ${proporcao.toFixed(2)})`);
-      console.log(`🎯 Dados baseados em ${numEmpresasAplicadas} de ${numEmpresasDefault} empresas disponíveis`);
-      
-      res.json({
-        success: true,
-        data: statsDAXFallback,
-        source: 'fallback_dax',
-        message: 'Lógica DAX com dados da última consulta bem-sucedida (API Senior temporariamente indisponível)'
+      res.status(500).json({
+        success: false,
+        error: 'API Senior indisponível',
+        message: 'Não é possível obter dados - API Senior não está acessível'
       });
       return;
     }
@@ -1088,62 +914,11 @@ router.get('/estatisticas', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erro ao buscar estatísticas:', error.message);
-    
-    // 🔧 FALLBACK DE EMERGÊNCIA: Se houver erro crítico, usar dados básicos das 7 empresas
-    try {
-      const { empresas = '', divisoes = '', status = '', months = '', years = '' } = req.query;
-      const empresasAplicadas = empresas.length > 0 ? empresas.split(',').map(e => parseInt(e.trim())) : empresasDefault;
-      const numEmpresasAplicadas = empresasAplicadas.length;
-      const numEmpresasDefault = empresasDefault.length;
-      
-      // Dados base REAIS das 7 empresas (emergência - mesmos dados reais)
-      const dadosBase = {
-        total_funcionarios: 2503,
-        funcionarios_ativos: 2503,
-        funcionarios_demitidos: 800,
-        funcionarios_transferidos: 43,
-        total_contratados_ate_data: 2503,
-        masculino: 1502,
-        feminino: 1001,
-        contratacoes_periodo: 189,
-        demissoes_periodo: 126,
-        contratacoes_6meses: 567,
-        salario_medio: 2270.45
-      };
-      
-      // Calcular proporção
-      const proporcao = numEmpresasAplicadas / numEmpresasDefault;
-      
-      const statsEmergencia = {
-        total_funcionarios: Math.round(dadosBase.total_funcionarios * proporcao).toString(),
-        funcionarios_ativos: Math.round(dadosBase.funcionarios_ativos * proporcao).toString(),
-        funcionarios_demitidos: Math.round(dadosBase.funcionarios_demitidos * proporcao).toString(),
-        funcionarios_transferidos: Math.round(dadosBase.funcionarios_transferidos * proporcao).toString(),
-        total_contratados_ate_data: Math.round(dadosBase.total_contratados_ate_data * proporcao).toString(),
-        masculino: Math.round(dadosBase.masculino * proporcao).toString(),
-        feminino: Math.round(dadosBase.feminino * proporcao).toString(),
-        salario_medio: dadosBase.salario_medio.toFixed(2),
-        contratacoes_6meses: Math.round(dadosBase.contratacoes_6meses * proporcao).toString(),
-        contratacoes_periodo: Math.round(dadosBase.contratacoes_periodo * proporcao).toString(),
-        demissoes_periodo: Math.round(dadosBase.demissoes_periodo * proporcao).toString()
-      };
-      
-      console.log(`🚨 FALLBACK EMERGÊNCIA: Dados para ${numEmpresasAplicadas} empresa(s) - proporção ${proporcao.toFixed(2)}`);
-      
-      res.json({
-        success: true,
-        data: statsEmergencia,
-        source: 'fallback_emergency',
-        message: 'Dados de emergência - Sistema temporariamente indisponível'
-      });
-    } catch (fallbackError) {
-      console.error('❌ Erro crítico no fallback de emergência:', fallbackError.message);
-      res.status(500).json({
-        success: false,
-        error: 'Erro ao buscar estatísticas',
-        message: error.message
-      });
-    }
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar estatísticas',
+      message: error.message
+    });
   }
 });
 
