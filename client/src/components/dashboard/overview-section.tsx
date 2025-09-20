@@ -122,7 +122,19 @@ export function OverviewSection() {
   // No default selections - user must choose what to filter by
   
   // Create filter query params for API - only include when values differ from defaults
-  const filterParams: Record<string, string> = {};
+  const filterParams: {
+    months: string;
+    years: string;
+    empresas: string;
+    status: string;
+    divisoes: string;
+  } = {
+    months: '',
+    years: '',
+    empresas: '',
+    status: '',
+    divisoes: ''
+  };
   
   if (selectedMonths.length > 0) {
     filterParams.months = selectedMonths.join(',');

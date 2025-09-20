@@ -119,9 +119,9 @@ router.get('/analyze-duplicates', async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${SENIOR_API_KEY}`
+        "x-api-key": SENIOR_API_KEY
       },
-      body: JSON.stringify({ query: duplicateAnalysisQuery })
+      body: JSON.stringify({ sqlText: duplicateAnalysisQuery })
     });
     
     if (!response.ok) {
@@ -200,9 +200,9 @@ router.get('/sample-employee', async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${SENIOR_API_KEY}`
+        "x-api-key": SENIOR_API_KEY
       },
-      body: JSON.stringify({ query: sampleQuery })
+      body: JSON.stringify({ sqlText: sampleQuery })
     });
     
     if (!response.ok) {
@@ -628,7 +628,7 @@ router.get('/estatisticas', async (req, res) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${SENIOR_API_KEY}`,
+          "x-api-key": SENIOR_API_KEY,
         },
         body: JSON.stringify({ sqlText: realQuery }),
       });
@@ -912,12 +912,12 @@ router.get('/investigar-empresas-reais', async (req, res) => {
     const promises = [
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryEmpresasReais }),
       }),
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryEmpresa4 }),
       })
     ];
@@ -1003,17 +1003,17 @@ router.get('/investigar-campos-janeiro', async (req, res) => {
     const promises = [
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryInvestigacao }),
       }),
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryTotalGeral }),
       }),
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryTipcol135 }),
       })
     ];
@@ -1098,17 +1098,17 @@ router.get('/teste-logicas-janeiro', async (req, res) => {
     const promises = [
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryInterseccao }),
       }),
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: queryFinalPeriodo }),
       }),
       fetch(`${SENIOR_API_URL}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SENIOR_API_KEY}` },
+        headers: { "Content-Type": "application/json", "x-api-key": SENIOR_API_KEY },
         body: JSON.stringify({ sqlText: querySnapshot }),
       })
     ];
@@ -1170,7 +1170,7 @@ router.get('/teste-estrutura-folha', async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${SENIOR_API_KEY}`,
+        "x-api-key": SENIOR_API_KEY,
       },
       body: JSON.stringify({ sqlText: queryEmpresas }),
     });
@@ -1199,7 +1199,7 @@ router.get('/teste-estrutura-folha', async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${SENIOR_API_KEY}`,
+        "x-api-key": SENIOR_API_KEY,
       },
       body: JSON.stringify({ sqlText: queryPK }),
     });

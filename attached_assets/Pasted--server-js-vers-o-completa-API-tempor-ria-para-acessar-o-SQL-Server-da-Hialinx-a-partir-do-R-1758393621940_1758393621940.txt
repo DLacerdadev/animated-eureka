@@ -1,0 +1,116 @@
+// server.js (versão completa)
+// API temporária para acessar o SQL Server da Hialinx a partir do Replit.
+// Conecta SEM database padrão e referencia o DB explicitamente nas consultas.
+
+require('dotenv').config();
+const express = require('express');
+const sql = require('mssql');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// --------- Config & Segurança ---------
+const API_KEY = process.env.API_KEY || 'troque-aqui';
+const DB = process.env.MSSQL_DB; // ex.: 'pus_hcm_221123'
+
+// middleware simples de API Key
+function requireKey(req, res, next) {
+  const k = req.headers['x-api-key'];
+  if (!k || k !== API_KEY) return res.status(401).json({ error: 'unauthorized' });
+  next();
+}
+
+// Conexão SEM database (vamos referenciar [DB].Esquema.Tabela nas queries)
+const dbConfig = {
+  server: process.env.MSSQL_HOST,
+  port: parseInt(process.env.MSSQL_PORT || '1433', 10),
+  user: process.env.MSSQL_USER,
+  password: process.env.MSSQL_PASS,
+  options: {
+    encrypt: true,
+    trustServerCertificate: true,
+    enableArithAbort: true
+  },
+  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
+};
+
+let pool;
+async function getPool() {
+  if (pool) return pool;
+  pool = await sql.connect(dbConfig);
+  return pool;
+}
+
+// --------- Rotas ---------
+app.get('/', (req, res) => {
+  res.type('text').send(
+`API OK.
+Rotas:
+  - GET  /health
+  - GET  /tables        (header: x-api-key)
+  - POST /query         (header: x-api-key, body: { "sqlText": "SELECT ..." })
+
+Obs:
+  * As consultas devem referenciar o DB explicitamente, ex.:
+      SELECT TOP 5 * FROM [${DB}].INFORMATION_SCHEMA.TABLES
+  * Somente SELECT é permitido.
+  * Sua API_KEY atual é definida no .env (não exibida aqui).`
+  );
+});
+
+app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Lista tabelas do banco alvo usando 3-part name
+app.get('/tables', requireKey, async (req, res) => {
+  try {
+    const p = await getPool();
+    const q = `
+      SELECT TABLE_SCHEMA, TABLE_NAME
+      FROM [${DB}].INFORMATION_SCHEMA.TABLES
+      ORDER BY TABLE_SCHEMA, TABLE_NAME;
+    `;
+    const rs = await p.request().query(q);
+    res.json(rs.recordset);
+  } catch (e) {
+    console.error('DB ERROR /tables:', e.message, e.number, e.state);
+    res.status(500).json({ error: e.message, number: e.number, state: e.state });
+  }
+});
+
+// Executa apenas SELECT (com algumas proteções)
+app.post('/query', requireKey, async (req, res) => {
+  try {
+    let sqlText = String(req.body?.sqlText || '').trim();
+
+    // Permitir apenas SELECT
+    if (!/^select\b/i.test(sqlText)) {
+      return res.status(400).json({ error: 'Somente SELECT é permitido.' });
+    }
+    // Bloquear comandos perigosos
+    const bad = /\b(INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|EXEC|EXECUTE|GRANT|REVOKE|BACKUP)\b/i;
+    if (bad.test(sqlText)) {
+      return res.status(400).json({ error: 'Apenas SELECT simples é permitido.' });
+    }
+
+    // Ajuda: se o usuário esquecer de prefixar INFORMATION_SCHEMA com o DB, corrigimos
+    // "FROM INFORMATION_SCHEMA." -> "FROM [DB].INFORMATION_SCHEMA."
+    sqlText = sqlText.replace(
+      /\bFROM\s+INFORMATION_SCHEMA\./ig,
+      `FROM [${DB}].INFORMATION_SCHEMA.`
+    );
+
+    const p = await getPool();
+    const rs = await p.request().query(sqlText);
+    res.json(rs.recordset);
+  } catch (e) {
+    console.error('DB ERROR /query:', e.message, e.number, e.state);
+    res.status(500).json({ error: e.message, number: e.number, state: e.state });
+  }
+});
+
+// --------- Start ---------
+const port = parseInt(process.env.PORT || '3000', 10);
+app.listen(port, '0.0.0.0', () => console.log(`API rodando em http://localhost:${port}`));
+

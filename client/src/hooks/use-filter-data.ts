@@ -25,51 +25,47 @@ interface EmployeeStatus {
   label: string;
 }
 
-// Hook to fetch all companies
+// Hook to fetch all companies - usando dados das 7 empresas conhecidas
 export function useCompanies() {
   return useQuery<Company[]>({
     queryKey: ["companies"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/companies`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch companies");
-      }
-      const result = await response.json();
-      return result.success ? result.data : [];
+      // Retorna as 7 empresas padrão conhecidas
+      return [
+        { id: "1", codigo: 1, razao_social: "Opus Consultoria", nome_fantasia: "Opus Consultoria", cnpj: "", situacao: 1, label: "Opus Consultoria" },
+        { id: "6", codigo: 6, razao_social: "Telos", nome_fantasia: "Telos", cnpj: "", situacao: 1, label: "Telos" },
+        { id: "8", codigo: 8, razao_social: "Opus Serviços", nome_fantasia: "Opus Serviços", cnpj: "", situacao: 1, label: "Opus Serviços" },
+        { id: "9", codigo: 9, razao_social: "Opus Logística", nome_fantasia: "Opus Logística", cnpj: "", situacao: 1, label: "Opus Logística" },
+        { id: "10", codigo: 10, razao_social: "Opus Manutenção", nome_fantasia: "Opus Manutenção", cnpj: "", situacao: 1, label: "Opus Manutenção" },
+        { id: "11", codigo: 11, razao_social: "Atenas", nome_fantasia: "Atenas", cnpj: "", situacao: 1, label: "Atenas" },
+        { id: "13", codigo: 13, razao_social: "Acelera IT", nome_fantasia: "Acelera IT", cnpj: "", situacao: 1, label: "Acelera IT" }
+      ];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
   });
 }
 
-// Hook to fetch all divisions
+// Hook to fetch all divisions - desabilitado (dados vêm da Senior API conforme necessário)
 export function useDivisions() {
   return useQuery<Division[]>({
     queryKey: ["divisions"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/divisions`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch divisions");
-      }
-      const result = await response.json();
-      return result.success ? result.data : [];
+      // Retorna array vazio - divisões vêm da Senior API conforme necessário
+      return [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
   });
 }
 
-// Hook to fetch employee status types
+// Hook to fetch employee status types - desabilitado (dados vêm da Senior API conforme necessário)
 export function useEmployeeStatus() {
   return useQuery<EmployeeStatus[]>({
     queryKey: ["employee-status"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE}/employee-status`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch employee status");
-      }
-      const result = await response.json();
-      return result.success ? result.data : [];
+      // Retorna array vazio - status vêm da Senior API conforme necessário
+      return [];
     },
     staleTime: 10 * 60 * 1000, // 10 minutes (status rarely changes)
     retry: 2,
